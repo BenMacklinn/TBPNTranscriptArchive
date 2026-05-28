@@ -1,0 +1,23 @@
+[project]
+name = "tbpn-ingest"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "google-api-python-client>=2.160.0",
+  "youtube-transcript-api>=1.0.0",
+  "openai>=1.60.0",
+  "supabase>=2.11.0",
+  "python-dotenv>=1.0.0",
+  "httpx>=0.28.0",
+]
+
+[project.scripts]
+tbpn-ingest = "tbpn_ingest.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tbpn_ingest*"]

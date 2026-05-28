@@ -1,0 +1,60 @@
+# TBPN Transcript Archive
+
+Searchable archive of TBPN livestream transcripts with hybrid vector + keyword retrieval and timestamped clip links.
+
+## Stack
+
+- **Supabase Postgres** — `pgvector`, full-text search, RRF hybrid search
+- **Python** — YouTube discovery, caption fetch, chunking, embedding
+- **Next.js** — search UI with timestamped receipts
+
+## Setup
+
+1. Copy `.env.example` to `.env` and fill in keys.
+2. Apply the Supabase migration (already applied if using the linked project).
+3. Install ingest dependencies:
+
+```bash
+cd ingest && python -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+4. Install web dependencies:
+
+```bash
+cd web && npm install
+```
+
+## Ingestion
+
+Place browser-exported YouTube cookies at `ingest/youtube_cookies.json` if transcript
+fetch hits IP blocks. Export from a logged-in YouTube session in Chrome.
+
+```bash
+cd ingest
+source .venv/bin/activate
+
+# Discover livestream episodes (>= 2h)
+python -m tbpn_ingest list
+
+# Full backfill: fetch captions, chunk, embed, load
+python -m tbpn_ingest ingest --full
+
+# Resume after partial run
+python -m tbpn_ingest ingest --full --skip-done
+
+# Embed existing chunks that are missing vectors
+python -m tbpn_ingest embed
+
+# Incremental since date
+python -m tbpn_ingest ingest --since 2025-05-01
+```
+
+## Web
+
+```bash
+cd web
+npm run dev
+```
+
+Open http://localhost:3000
