@@ -50,8 +50,46 @@ function isMissingTimeWindowRpc(error: { code?: string; message?: string }) {
   return (
     error.code === "PGRST202" ||
     (error.message?.includes("min_start_seconds") ?? false) ||
-    (error.message?.includes("max_start_seconds") ?? false)
+    (error.message?.includes("max_start_seconds") ?? false) ||
+    (error.message?.includes("schema cache") ?? false)
   );
+}
+
+function buildHybridSearchRpcArgs(
+  options: {
+    queryText: string;
+    queryEmbedding: number[];
+    matchCount: number;
+    fullTextWeight: number;
+    semanticWeight: number;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    episodeId?: string | null;
+    minStartSeconds?: number | null;
+    maxStartSeconds?: number | null;
+  },
+  matchCount = options.matchCount,
+  includeTimeWindow = true,
+) {
+  const args: Record<string, unknown> = {
+    query_text: options.queryText,
+    query_embedding: options.queryEmbedding,
+    match_count: matchCount,
+    full_text_weight: options.fullTextWeight,
+    semantic_weight: options.semanticWeight,
+    date_from: options.dateFrom || null,
+    date_to: options.dateTo || null,
+    filter_episode_id: options.episodeId || null,
+  };
+
+  if (includeTimeWindow && options.minStartSeconds != null) {
+    args.min_start_seconds = options.minStartSeconds;
+  }
+  if (includeTimeWindow && options.maxStartSeconds != null) {
+    args.max_start_seconds = options.maxStartSeconds;
+  }
+
+  return args;
 }
 
 export async function fetchHybridResults(
@@ -69,18 +107,7 @@ export async function fetchHybridResults(
     maxStartSeconds?: number | null;
   },
 ) {
-  const rpcArgs = {
-    query_text: options.queryText,
-    query_embedding: options.queryEmbedding,
-    match_count: options.matchCount,
-    full_text_weight: options.fullTextWeight,
-    semantic_weight: options.semanticWeight,
-    date_from: options.dateFrom || null,
-    date_to: options.dateTo || null,
-    filter_episode_id: options.episodeId || null,
-    min_start_seconds: options.minStartSeconds ?? null,
-    max_start_seconds: options.maxStartSeconds ?? null,
-  };
+  const rpcArgs = buildHybridSearchRpcArgs(options);
 
   const { data, error } = await supabase.rpc("hybrid_search", rpcArgs);
 
@@ -96,16 +123,10 @@ export async function fetchHybridResults(
   }
 
   const fallbackMatchCount = Math.min(Math.max(options.matchCount * 4, 30), 60);
-  const fallback = await supabase.rpc("hybrid_search", {
-    query_text: options.queryText,
-    query_embedding: options.queryEmbedding,
-    match_count: fallbackMatchCount,
-    full_text_weight: options.fullTextWeight,
-    semantic_weight: options.semanticWeight,
-    date_from: options.dateFrom || null,
-    date_to: options.dateTo || null,
-    filter_episode_id: options.episodeId || null,
-  });
+  const fallback = await supabase.rpc(
+    "hybrid_search",
+    buildHybridSearchRpcArgs(options, fallbackMatchCount, false),
+  );
 
   if (fallback.error) {
     throw new Error(fallback.error.message);
