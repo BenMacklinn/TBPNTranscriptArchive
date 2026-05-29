@@ -6,7 +6,7 @@ import { ClipEmbed } from "@/app/components/clip-embed";
 import type { SearchMatch } from "@/lib/supabase";
 import { formatDisplayDate, formatDisplayTimestamp } from "@/lib/supabase";
 import { formatTranscriptLines } from "@/lib/format-transcript";
-import { getHighlightTerms, buildHighlightPattern, resolveMatchPreview } from "@/lib/rerank";
+import { getDisplayHighlightTerms, buildHighlightPattern, resolveMatchPreview } from "@/lib/rerank";
 
 type ResultCardProps = {
   match: SearchMatch;
@@ -16,7 +16,7 @@ type ResultCardProps = {
 };
 
 function highlightSnippet(text: string, query: string, extraTerms: string[] = []) {
-  const terms = getHighlightTerms(query, extraTerms);
+  const terms = getDisplayHighlightTerms(query, extraTerms);
   const pattern = buildHighlightPattern(terms);
   if (!pattern) {
     return text;

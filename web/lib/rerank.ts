@@ -185,6 +185,25 @@ export function getHighlightTerms(query: string, extraTerms: string[] = []) {
   return [...terms].sort((left, right) => right.length - left.length);
 }
 
+export function getDisplayHighlightTerms(query: string, extraTerms: string[] = []) {
+  const terms = new Set<string>(getHighlightTerms(query, extraTerms));
+  const normalizedQuery = normalizeText(query);
+  const queryWords = normalizedQuery
+    .split(" ")
+    .map((word) => word.replace(/^[.-]+|[.-]+$/g, ""))
+    .filter((word) => word.length >= 2 && !/^\d+$/.test(word));
+
+  for (const word of queryWords) {
+    terms.add(word);
+  }
+
+  if (queryWords.length >= 2) {
+    terms.add(normalizedQuery);
+  }
+
+  return [...terms].sort((left, right) => right.length - left.length);
+}
+
 export function buildHighlightPattern(terms: string[]) {
   if (terms.length === 0) {
     return null;
