@@ -532,16 +532,6 @@ textarea {
   width: 100%;
   min-width: 0;
   padding: 8px 4px;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
   font-size: 0.68rem;
   line-height: 1.15;
   letter-spacing: 0.01em;
