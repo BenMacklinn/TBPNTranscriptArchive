@@ -263,6 +263,22 @@ button {
   line-height: 1.45;
 }
 
+.search-fields-grid input[type="text"] {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
 input[type="text"],
 input[type="date"],
 select,

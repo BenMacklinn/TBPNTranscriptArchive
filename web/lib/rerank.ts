@@ -8,39 +8,74 @@ const STOPWORDS = new Set([
   "after",
   "again",
   "also",
+  "and",
+  "any",
+  "are",
   "because",
   "been",
   "being",
+  "but",
+  "can",
   "could",
+  "did",
   "does",
+  "for",
   "from",
+  "get",
+  "had",
+  "has",
   "have",
+  "her",
+  "him",
+  "his",
   "into",
+  "its",
   "just",
   "like",
   "more",
   "most",
+  "not",
+  "now",
+  "off",
+  "one",
+  "our",
+  "out",
   "over",
+  "put",
+  "say",
+  "see",
+  "she",
   "some",
   "than",
   "that",
+  "the",
   "their",
+  "them",
+  "then",
   "there",
   "these",
+  "they",
   "this",
   "those",
   "through",
   "today",
+  "too",
+  "two",
   "under",
+  "use",
+  "was",
+  "way",
+  "were",
+  "who",
   "with",
   "would",
   "will",
+  "you",
   "your",
   "when",
   "where",
   "what",
   "which",
-  "who",
   "how",
   "talk",
   "talked",
@@ -109,6 +144,54 @@ export function tokenizeHighlightTerms(text: string) {
         return word.length > 2 && !STOPWORDS.has(word);
       }),
   );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function phraseHasHighlightableWord(phrase: string) {
+  return phrase
+    .split(/\s+/)
+    .some((word) => word.length > 2 && !STOPWORDS.has(word) && !HIGHLIGHTABLE_STOPWORDS.has(word));
+}
+
+export function getHighlightTerms(query: string, extraTerms: string[] = []) {
+  const terms = new Set<string>(tokenizeHighlightTerms(query));
+
+  for (const raw of extraTerms) {
+    const term = raw.trim().toLowerCase();
+    if (!term) {
+      continue;
+    }
+
+    if (term.includes(" ")) {
+      if (phraseHasHighlightableWord(term)) {
+        terms.add(term);
+      }
+      for (const part of term.split(/\s+/)) {
+        if (part.length > 2 && !STOPWORDS.has(part) && !HIGHLIGHTABLE_STOPWORDS.has(part)) {
+          terms.add(part);
+        }
+      }
+      continue;
+    }
+
+    if (term.length > 2 && !STOPWORDS.has(term) && !HIGHLIGHTABLE_STOPWORDS.has(term)) {
+      terms.add(term);
+    }
+  }
+
+  return [...terms].sort((left, right) => right.length - left.length);
+}
+
+export function buildHighlightPattern(terms: string[]) {
+  if (terms.length === 0) {
+    return null;
+  }
+
+  const pattern = terms.map((term) => escapeRegExp(term)).join("|");
+  return new RegExp(`(?<![\\w-])(${pattern})(?![\\w-])`, "gi");
 }
 
 export function extractEntities(text: string) {
@@ -260,11 +343,78 @@ function scoreChunkCandidate(input: {
 
 function countTermHits(text: string, terms: string[]) {
   const normalized = normalizeText(text);
-  return terms.reduce(
-    (count, term) => count + (normalized.includes(normalizeText(term)) ? 1 : 0),
-    0,
+  return terms.reduce((count, term) => {
+    const pattern = new RegExp(
+      `(?<![\\w-])${escapeRegExp(normalizeText(term))}(?![\\w-])`,
+      "i",
+    );
+    return count + (pattern.test(normalized) ? 1 : 0);
+  }, 0);
+}
+
+function splitIntoSentences(text: string) {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function collectSentenceCandidates(text: string) {
+  const formatted = formatTranscriptForDisplay(text);
+  const fromLines = formatTranscriptLines(text).flatMap((line) => splitIntoSentences(line));
+  const fromBlocks = splitIntoSentences(formatted.replace(/\n+/g, " "));
+  return unique([...fromLines, ...fromBlocks, formatted.trim()].filter(Boolean));
+}
+
+function trimAroundTermMatch(sentence: string, terms: string[]) {
+  if (sentence.length <= 280) {
+    return sentence;
+  }
+
+  const normalized = normalizeText(sentence);
+  for (const term of terms) {
+    const pattern = new RegExp(
+      `(?<![\\w-])${escapeRegExp(normalizeText(term))}(?![\\w-])`,
+      "i",
+    );
+    const match = normalized.match(pattern);
+    if (match?.index == null) {
+      continue;
+    }
+
+    const ratio = sentence.length / Math.max(normalized.length, 1);
+    const approxStart = Math.max(0, Math.floor(match.index * ratio) - 100);
+    const approxEnd = Math.min(sentence.length, approxStart + 260);
+    let excerpt = sentence.slice(approxStart, approxEnd).trim();
+    if (approxStart > 0) {
+      excerpt = `…${excerpt}`;
+    }
+    if (approxEnd < sentence.length) {
+      excerpt = `${excerpt}…`;
+    }
+    return excerpt;
+  }
+
+  return `${sentence.slice(0, 277).trim()}…`;
+}
+
+export function hasWordForWordMatch(
+  match: Pick<SearchMatchLike, "shared_terms" | "shared_entities">,
+  query: string,
+) {
+  const wordMatchTerms = [...match.shared_terms, ...match.shared_entities].filter(Boolean);
+  const highlightTerms = getHighlightTerms(query, wordMatchTerms);
+  return (
+    highlightTerms.length > 0 &&
+    (match.shared_terms.length > 0 || match.shared_entities.length > 0)
   );
 }
+
+type SearchMatchLike = {
+  shared_terms: string[];
+  shared_entities: string[];
+  match_type: "keyword" | "semantic" | "hybrid";
+};
 
 export function extractMatchSentence(text: string, terms: string[]) {
   const uniqueTerms = unique(terms.map((term) => term.trim()).filter(Boolean));
@@ -272,19 +422,7 @@ export function extractMatchSentence(text: string, terms: string[]) {
     return null;
   }
 
-  const formatted = formatTranscriptForDisplay(text);
-  const lines = formatTranscriptLines(text);
-  const sentences = formatted
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
-  const candidates =
-    lines.length > 1
-      ? lines
-      : sentences.length > 0
-        ? sentences
-        : [formatted.trim()];
-
+  const candidates = collectSentenceCandidates(text);
   let bestSentence = candidates[0];
   let bestScore = -1;
 
@@ -296,28 +434,43 @@ export function extractMatchSentence(text: string, terms: string[]) {
     }
   }
 
-  if (bestScore > 0) {
-    return bestSentence;
+  if (bestScore <= 0 || !bestSentence) {
+    return null;
   }
 
-  for (const term of uniqueTerms) {
-    const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    const match = formatted.match(pattern);
-    if (match?.index != null) {
-      const start = Math.max(0, match.index - 90);
-      const end = Math.min(formatted.length, match.index + term.length + 140);
-      let excerpt = formatted.slice(start, end).trim();
-      if (start > 0) {
-        excerpt = `…${excerpt}`;
-      }
-      if (end < formatted.length) {
-        excerpt = `${excerpt}…`;
-      }
-      return excerpt;
+  return trimAroundTermMatch(bestSentence, uniqueTerms);
+}
+
+export function resolveMatchPreview(input: {
+  query: string;
+  transcript: string;
+  sharedTerms: string[];
+  sharedEntities: string[];
+  matchReason: string;
+  summary: string;
+}) {
+  const wordMatchTerms = [...input.sharedTerms, ...input.sharedEntities].filter(Boolean);
+  const highlightTerms = getHighlightTerms(input.query, wordMatchTerms);
+  const exactMatch = hasWordForWordMatch(
+    {
+      shared_terms: input.sharedTerms,
+      shared_entities: input.sharedEntities,
+    },
+    input.query,
+  );
+
+  if (exactMatch) {
+    const sentence = extractMatchSentence(input.transcript, highlightTerms);
+    if (sentence) {
+      return { mode: "sentence" as const, text: sentence, highlightTerms: wordMatchTerms };
     }
   }
 
-  return null;
+  return {
+    mode: "reason" as const,
+    text: input.matchReason || input.summary,
+    highlightTerms: wordMatchTerms,
+  };
 }
 
 function buildMatchReason(input: {

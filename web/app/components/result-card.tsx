@@ -6,7 +6,7 @@ import { ClipEmbed } from "@/app/components/clip-embed";
 import type { SearchMatch } from "@/lib/supabase";
 import { formatDisplayDate, formatDisplayTimestamp } from "@/lib/supabase";
 import { formatTranscriptLines } from "@/lib/format-transcript";
-import { extractMatchSentence, tokenizeHighlightTerms } from "@/lib/rerank";
+import { getHighlightTerms, buildHighlightPattern, resolveMatchPreview } from "@/lib/rerank";
 
 type ResultCardProps = {
   match: SearchMatch;
@@ -16,29 +16,16 @@ type ResultCardProps = {
 };
 
 function highlightSnippet(text: string, query: string, extraTerms: string[] = []) {
-  const terms = [
-    ...tokenizeHighlightTerms(query),
-    ...extraTerms.flatMap((term) =>
-      term
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((part) => part.length > 1),
-    ),
-  ];
-  const uniqueTerms = [...new Set(terms)];
-  if (!uniqueTerms.length) {
+  const terms = getHighlightTerms(query, extraTerms);
+  const pattern = buildHighlightPattern(terms);
+  if (!pattern) {
     return text;
   }
 
-  const pattern = new RegExp(
-    `(${uniqueTerms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-    "gi",
-  );
   const parts = text.split(pattern);
 
   return parts.map((part, index) => {
-    const isMatch = uniqueTerms.some((term) => part.toLowerCase() === term.toLowerCase());
+    const isMatch = terms.some((term) => part.toLowerCase() === term.toLowerCase());
     if (isMatch) {
       return (
         <mark className="term-highlight" key={`${part}-${index}`}>
@@ -103,15 +90,19 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
   const [clipOpen, setClipOpen] = useState(false);
   const isSemantic = match.match_type === "semantic" || match.match_type === "hybrid";
   const wordMatchTerms = getWordMatchTerms(match);
+  const preview = resolveMatchPreview({
+    query,
+    transcript: match.transcript_snippet,
+    sharedTerms: match.shared_terms,
+    sharedEntities: match.shared_entities,
+    matchReason: match.match_reason,
+    summary: match.summary,
+  });
+
   const clipMeta =
     match.youtube_video_id != null && match.start_seconds != null
       ? { youtubeVideoId: match.youtube_video_id, startSeconds: match.start_seconds }
       : parseClipFromUrl(match.clip_url);
-  const matchSentence =
-    wordMatchTerms.length > 0
-      ? extractMatchSentence(match.transcript_snippet, wordMatchTerms)
-      : null;
-  const previewText = matchSentence ?? match.match_reason ?? match.summary;
 
   const showSplitMedia = clipOpen && expanded && Boolean(clipMeta);
 
@@ -136,9 +127,9 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
       </header>
 
       <p className="result-text">
-        {matchSentence
-          ? highlightSnippet(matchSentence, query, wordMatchTerms)
-          : previewText}
+        {preview.mode === "sentence"
+          ? highlightSnippet(preview.text, query, wordMatchTerms)
+          : preview.text}
       </p>
 
       {showSplitMedia ? (
