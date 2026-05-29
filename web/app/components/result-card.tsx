@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ClipEmbed } from "@/app/components/clip-embed";
 import type { SearchMatch } from "@/lib/supabase";
-import { formatDisplayDate, formatDisplayTimestamp } from "@/lib/supabase";
+import { formatDisplayDate, formatDisplayTimestamp, buildNewsmaxClipUrl } from "@/lib/supabase";
 import { formatTranscriptLines } from "@/lib/format-transcript";
 import { getDisplayHighlightTerms, buildHighlightPattern, resolveMatchPreview } from "@/lib/rerank";
 
@@ -205,20 +205,30 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
       )}
 
       <footer className="result-actions">
+        <div className="result-actions-row">
+          <button className="btn btn-secondary result-action-btn" type="button" onClick={onToggle}>
+            {expanded ? "Hide" : "Transcript"}
+          </button>
+          <Link className="btn btn-secondary result-action-btn" href={`/episode/${match.episode_id}`}>
+            Episode
+          </Link>
+          <a
+            className="btn btn-secondary result-action-btn"
+            href={buildNewsmaxClipUrl(match.date)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Make clip
+          </a>
+        </div>
         <button
-          className="btn btn-primary"
+          className="btn btn-primary btn-lg result-watch-btn"
           type="button"
           disabled={!clipMeta}
           onClick={() => setClipOpen((open) => !open)}
         >
           {clipOpen ? "Hide clip" : "Watch clip"}
         </button>
-        <button className="result-link" type="button" onClick={onToggle}>
-          {expanded ? "Hide transcript" : "View transcript"}
-        </button>
-        <Link className="result-link" href={`/episode/${match.episode_id}`}>
-          Full episode
-        </Link>
       </footer>
     </article>
   );

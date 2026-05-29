@@ -116,6 +116,30 @@ export function buildClipEmbedUrl(youtubeVideoId: string, startSeconds: number) 
   return `https://www.youtube.com/embed/${youtubeVideoId}?${params.toString()}`;
 }
 
+const NEWSMAX_CLIPPER_BASE_URL =
+  process.env.NEXT_PUBLIC_NEWSMAX_CLIPPER_BASE_URL ??
+  "https://newsmax-delta.vercel.app";
+
+function parseIsoDateParts(isoDate: string) {
+  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) {
+    throw new Error(`Invalid date: ${isoDate}`);
+  }
+  return { year, month, day };
+}
+
+export function formatNewsmaxEpisodeDate(isoDate: string) {
+  const { year, month, day } = parseIsoDateParts(isoDate);
+  // Archive dates follow YouTube upload day; Newsmax clipper uses the live show day.
+  const showDate = new Date(Date.UTC(year, month - 1, day - 1));
+  return `${showDate.getUTCMonth() + 1}-${showDate.getUTCDate()}-${showDate.getUTCFullYear()}`;
+}
+
+export function buildNewsmaxClipUrl(isoDate: string) {
+  const slug = formatNewsmaxEpisodeDate(isoDate);
+  return `${NEWSMAX_CLIPPER_BASE_URL.replace(/\/$/, "")}/episodes/${slug}/live-clipper`;
+}
+
 export function formatDisplayDate(isoDate: string) {
   const date = new Date(`${isoDate}T12:00:00`);
   return date.toLocaleDateString("en-US", {

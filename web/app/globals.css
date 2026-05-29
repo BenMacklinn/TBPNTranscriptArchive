@@ -434,7 +434,6 @@ textarea {
 }
 
 .search-actions,
-.result-actions,
 .filters-footer {
   display: flex;
   flex-wrap: wrap;
@@ -442,9 +441,21 @@ textarea {
 }
 
 .result-actions {
-  align-items: center;
-  gap: 14px;
+  display: grid;
+  gap: 10px;
+  width: 100%;
   margin-top: auto;
+}
+
+.result-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.result-watch-btn {
+  width: 100%;
 }
 
 /* ── Buttons ── */
@@ -515,6 +526,32 @@ textarea {
 .btn-ghost:hover {
   color: var(--text);
   background: var(--bg-elevated);
+}
+
+.btn.result-action-btn {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 4px;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  text-wrap: balance;
+  transform: none;
+}
+
+.btn.result-action-btn:hover {
+  transform: none;
 }
 
 /* ── Filters ── */
@@ -1112,14 +1149,8 @@ textarea {
   }
 
   .search-actions .btn,
-  .filters-footer .btn,
-  .result-actions .btn {
+  .filters-footer .btn {
     width: 100%;
-  }
-
-  .result-actions {
-    flex-direction: column;
-    align-items: stretch;
   }
 
   .result-media-row {
