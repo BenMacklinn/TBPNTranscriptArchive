@@ -39,6 +39,22 @@ export type SearchMatch = {
   clip_url: string;
   transcript_snippet: string;
   score: number;
+  rank: number;
+  confidence: "strong" | "medium" | "weak" | "no";
+  match_reason: string;
+  shared_terms: string[];
+  shared_entities: string[];
+  match_type: "keyword" | "semantic" | "hybrid";
+  guest_name?: string;
+  guest_segment_start?: string;
+  guest_segment_url?: string;
+};
+
+export type GuestNameOption = {
+  id: string;
+  person: string;
+  company: string | null;
+  job_position: string | null;
 };
 
 export type EpisodeSummary = {

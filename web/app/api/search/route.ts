@@ -5,6 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       query?: string;
+      guestName?: string;
       dateFrom?: string;
       dateTo?: string;
       episodeId?: string;
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
 
     const result = await runSearch({
       query,
+      guestName: body.guestName?.trim() || undefined,
       dateFrom: body.dateFrom,
       dateTo: body.dateTo,
       episodeId: body.episodeId,

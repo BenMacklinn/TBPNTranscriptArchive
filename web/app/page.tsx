@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ResultCard } from "@/app/components/result-card";
+import { SearchSkeleton } from "@/app/components/search-skeleton";
+import { SearchWorkspace } from "@/app/components/search-workspace";
+import { TranscriptPanel } from "@/app/components/transcript-panel";
+import type { GuestSegmentSummary } from "@/lib/guest-search";
 import type {
   EpisodeSummary,
   EpisodeTranscript,
   SearchMatch,
 } from "@/lib/supabase";
-import {
-  buildClipUrl,
-  formatDisplayDate,
-  formatDisplayTimestamp,
-} from "@/lib/supabase";
+import { formatDisplayDate } from "@/lib/supabase";
 
 export default function HomePage() {
   const [query, setQuery] = useState("");
+  const [guestName, setGuestName] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [episodeFilter, setEpisodeFilter] = useState("");
@@ -26,6 +27,9 @@ export default function HomePage() {
   const [matches, setMatches] = useState<SearchMatch[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [openTranscripts, setOpenTranscripts] = useState<EpisodeTranscript[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [windowsSearched, setWindowsSearched] = useState<number | null>(null);
+  const [searchedSegments, setSearchedSegments] = useState<GuestSegmentSummary[]>([]);
 
   useEffect(() => {
     async function loadEpisodes() {
@@ -51,19 +55,6 @@ export default function HomePage() {
     void loadEpisodes();
   }, []);
 
-  const filteredEpisodes = useMemo(() => {
-    const needle = episodeFilter.trim().toLowerCase();
-    if (!needle) {
-      return episodes;
-    }
-
-    return episodes.filter(
-      (episode) =>
-        episode.title.toLowerCase().includes(needle) ||
-        episode.published_at.includes(needle),
-    );
-  }, [episodeFilter, episodes]);
-
   function toggleExpanded(key: string) {
     setExpanded((previous) => {
       const next = new Set(previous);
@@ -76,23 +67,18 @@ export default function HomePage() {
     });
   }
 
-  function closeTranscript(episodeId: string) {
-    setOpenTranscripts((previous) =>
-      previous.filter((entry) => entry.episode.id !== episodeId),
-    );
-  }
-
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  async function runSearch(searchQuery: string, searchGuestName?: string) {
     setLoading(true);
     setError(null);
+    setHasSearched(true);
 
     try {
       const response = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query,
+          query: searchQuery,
+          guestName: searchGuestName || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           episodeId: selectedEpisodeId || undefined,
@@ -101,6 +87,9 @@ export default function HomePage() {
 
       const data = (await response.json()) as {
         matches?: SearchMatch[];
+        guestName?: string;
+        windowsSearched?: number;
+        searchedSegments?: GuestSegmentSummary[];
         error?: string;
       };
 
@@ -108,6 +97,15 @@ export default function HomePage() {
         throw new Error(data.error ?? "Search failed");
       }
 
+      setQuery(searchQuery);
+      if (searchGuestName) {
+        setGuestName(data.guestName ?? searchGuestName);
+        setWindowsSearched(data.windowsSearched ?? null);
+        setSearchedSegments(data.searchedSegments ?? []);
+      } else {
+        setWindowsSearched(null);
+        setSearchedSegments([]);
+      }
       setMatches(data.matches ?? []);
       setExpanded(new Set());
     } catch (submitError) {
@@ -115,6 +113,8 @@ export default function HomePage() {
         submitError instanceof Error ? submitError.message : "Search failed",
       );
       setMatches([]);
+      setWindowsSearched(null);
+      setSearchedSegments([]);
     } finally {
       setLoading(false);
     }
@@ -122,7 +122,7 @@ export default function HomePage() {
 
   async function onViewTranscript() {
     if (!selectedEpisodeId) {
-      setError("Choose an episode first.");
+      setError("Choose an episode in Filters first.");
       return;
     }
 
@@ -153,185 +153,114 @@ export default function HomePage() {
   }
 
   return (
-    <main className="container">
-      <section className="hero">
-        <h1>TBPN Transcript Archive</h1>
-        <p>
-          Search every TBPN livestream with hybrid semantic + keyword retrieval.
-          Every answer comes with a timestamp and a clip link.
-        </p>
-      </section>
+    <main className="page">
+      <SearchWorkspace
+        query={query}
+        onQueryChange={setQuery}
+        guestName={guestName}
+        onGuestNameChange={setGuestName}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        episodeFilter={episodeFilter}
+        onEpisodeFilterChange={setEpisodeFilter}
+        selectedEpisodeId={selectedEpisodeId}
+        onSelectedEpisodeChange={setSelectedEpisodeId}
+        episodes={episodes}
+        loading={loading}
+        transcriptLoading={transcriptLoading}
+        onSearch={(searchQuery, searchGuestName) => void runSearch(searchQuery, searchGuestName)}
+        onViewTranscript={() => void onViewTranscript()}
+      />
 
-      <section className="search-panel">
-        <form className="search-form" onSubmit={onSubmit}>
-          <div className="search-row">
-            <label>
-              Search
-              <input
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="when did we talk about nuclear energy bottlenecks last year?"
-                required
-              />
-            </label>
-            <label>
-              From
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-              />
-            </label>
-            <label>
-              To
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
-              />
-            </label>
-            <button className="primary" type="submit" disabled={loading}>
-              {loading ? "Searching..." : "Search"}
-            </button>
-          </div>
+      {error ? (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      ) : null}
 
-          <div className="episode-row">
-            <label className="episode-filter-label">
-              Episode
-              <input
-                type="text"
-                value={episodeFilter}
-                onChange={(event) => setEpisodeFilter(event.target.value)}
-                placeholder="Filter by title or date..."
-              />
-            </label>
-            <label>
-              Select episode
-              <select
-                value={selectedEpisodeId}
-                onChange={(event) => setSelectedEpisodeId(event.target.value)}
-              >
-                <option value="">All episodes</option>
-                {filteredEpisodes.map((episode) => (
-                  <option key={episode.id} value={episode.id}>
-                    {episode.published_at} — {episode.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => void onViewTranscript()}
-              disabled={!selectedEpisodeId || transcriptLoading}
-            >
-              {transcriptLoading ? "Loading..." : "View full transcript"}
-            </button>
-          </div>
-        </form>
-      </section>
+      {loading ? <SearchSkeleton /> : null}
 
-      {error ? <p className="error">{error}</p> : null}
+      {!loading && hasSearched && matches.length === 0 && !error ? (
+        <div className="empty-state">
+          <h2>No clips matched</h2>
+          <p>
+            Try fewer words, add a guest or company name, or widen your date range.
+          </p>
+        </div>
+      ) : null}
 
-      {!loading && matches.length === 0 && !error && openTranscripts.length === 0 ? (
-        <p className="status">Try a question about AI, markets, guests, or policy.</p>
+      {!loading && !hasSearched && matches.length === 0 && !error && openTranscripts.length === 0 ? (
+        <div className="empty-state empty-state-muted">
+          <h2>Search the archive</h2>
+          <p>
+            Type specific terms — guest names, companies, and topics work best.
+          </p>
+        </div>
       ) : null}
 
       {openTranscripts.map((transcript) => (
-        <section className="results transcript-panel" key={transcript.episode.id}>
-          <div className="transcript-header">
-            <div>
-              <p className="result-meta">{formatDisplayDate(transcript.episode.published_at)}</p>
-              <h2 className="result-title">{transcript.episode.title}</h2>
-              <p className="status">
-                Full transcript · {transcript.chunks.length} chunks ·{" "}
-                {Math.round(transcript.episode.duration_seconds / 3600)}h
-              </p>
-            </div>
-            <div className="actions">
-              <a
-                className="primary-link"
-                href={transcript.episode.source_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open on YouTube
-              </a>
-              <Link href={`/episode/${transcript.episode.id}`}>Episode page</Link>
-              <button type="button" onClick={() => closeTranscript(transcript.episode.id)}>
-                Close transcript
-              </button>
-            </div>
-          </div>
-
-          <div className="episode-list">
-            {transcript.chunks.map((chunk) => (
-              <div
-                className="chunk-row"
-                key={`${chunk.start_seconds}-${chunk.end_seconds}`}
-              >
-                <div className="chunk-time">
-                  {formatDisplayTimestamp(chunk.start_time)} –{" "}
-                  {formatDisplayTimestamp(chunk.end_time)}
-                </div>
-                <p className="result-summary">{chunk.text}</p>
-                <div className="actions">
-                  <a
-                    className="primary-link"
-                    href={buildClipUrl(
-                      transcript.episode.youtube_video_id,
-                      chunk.start_seconds,
-                    )}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open clip
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <TranscriptPanel
+          key={transcript.episode.id}
+          transcript={transcript}
+          onClose={() =>
+            setOpenTranscripts((previous) =>
+              previous.filter((entry) => entry.episode.id !== transcript.episode.id),
+            )
+          }
+        />
       ))}
 
-      {matches.length > 0 ? (
-        <section className="results">
-          <p className="status">
-            Found {matches.length} likely matches
-            {selectedEpisodeId ? " in selected episode" : ""}
-          </p>
-          {matches.map((match) => {
-            const key = `${match.episode_id}-${match.start_time}`;
-            const isExpanded = expanded.has(key);
+      {!loading && searchedSegments.length > 0 ? (
+        <section className="guest-segments-panel">
+          <div className="results-header">
+            <h2 className="section-title">Guest segments searched</h2>
+            <p className="section-meta">
+              {windowsSearched ?? searchedSegments.length} appearance
+              {(windowsSearched ?? searchedSegments.length) === 1 ? "" : "s"} for {guestName}
+            </p>
+          </div>
+          <ul className="guest-segments-list">
+            {searchedSegments.map((segment) => (
+              <li key={`${segment.episodeDate}-${segment.timestampUrl}`}>
+                <a href={segment.timestampUrl} target="_blank" rel="noreferrer">
+                  {formatDisplayDate(segment.episodeDate)} · from {segment.segmentStartTime}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
-            return (
-              <article className="result-card" key={key}>
-                <div className="result-meta">
-                  {formatDisplayDate(match.date)} — {formatDisplayTimestamp(match.start_time)}
-                </div>
-                <h2 className="result-title">{match.title}</h2>
-                <p className="result-summary">{match.summary}</p>
-                {isExpanded ? (
-                  <p className="snippet">{match.transcript_snippet}</p>
-                ) : null}
-                <div className="actions">
-                  <a
-                    className="primary-link"
-                    href={match.clip_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open clip
-                  </a>
-                  <button type="button" onClick={() => toggleExpanded(key)}>
-                    {isExpanded ? "Hide transcript" : "View transcript"}
-                  </button>
-                  <Link href={`/episode/${match.episode_id}`}>Episode page</Link>
-                </div>
-              </article>
-            );
-          })}
+      {!loading && matches.length > 0 ? (
+        <section className="results-section">
+          <div className="results-header">
+            <h2 className="section-title">
+              {matches.length} clip{matches.length === 1 ? "" : "s"}
+            </h2>
+            {selectedEpisodeId ? (
+              <p className="section-meta">Scoped to selected episode</p>
+            ) : windowsSearched ? (
+              <p className="section-meta">
+                Across {windowsSearched} guest segment{windowsSearched === 1 ? "" : "s"}
+              </p>
+            ) : null}
+          </div>
+          <div className="results-grid">
+            {matches.map((match) => {
+              const key = `${match.episode_id}-${match.start_time}`;
+              return (
+                <ResultCard
+                  key={key}
+                  match={match}
+                  query={query}
+                  expanded={expanded.has(key)}
+                  onToggle={() => toggleExpanded(key)}
+                />
+              );
+            })}
+          </div>
         </section>
       ) : null}
     </main>

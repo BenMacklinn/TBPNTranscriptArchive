@@ -32,37 +32,39 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
     .order("start_seconds", { ascending: true });
 
   return (
-    <main className="container">
+    <main className="page">
       <Link className="back-link" href="/">
         ← Back to search
       </Link>
 
-      <section className="hero">
-        <h1>{episode.title}</h1>
-        <p>
-          {formatDisplayDate(episode.published_at)} ·{" "}
-          {Math.round(episode.duration_seconds / 3600)}h archive
+      <section className="workspace-card episode-page-header">
+        <p className="eyebrow">{formatDisplayDate(episode.published_at)}</p>
+        <h1 className="page-title">{episode.title}</h1>
+        <p className="page-lead">
+          {Math.round(episode.duration_seconds / 3600)}h archive · {chunks?.length ?? 0} segments
         </p>
+        <div className="search-actions episode-actions">
+          <a className="btn btn-primary" href={episode.source_url} target="_blank" rel="noreferrer">
+            Open on YouTube
+          </a>
+        </div>
       </section>
 
-      <section className="search-panel episode-list">
+      <section className="transcript-panel episode-list">
         {(chunks ?? []).map((chunk) => (
           <div className="chunk-row" key={`${chunk.start_seconds}-${chunk.end_seconds}`}>
             <div className="chunk-time">
-              {formatDisplayTimestamp(chunk.start_time)} –{" "}
-              {formatDisplayTimestamp(chunk.end_time)}
+              {formatDisplayTimestamp(chunk.start_time)} – {formatDisplayTimestamp(chunk.end_time)}
             </div>
-            <p className="result-summary">{chunk.text}</p>
-            <div className="actions">
-              <a
-                className="primary-link"
-                href={buildClipUrl(episode.youtube_video_id, chunk.start_seconds)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open clip
-              </a>
-            </div>
+            <p className="chunk-text">{chunk.text}</p>
+            <a
+              className="btn btn-secondary btn-sm"
+              href={buildClipUrl(episode.youtube_video_id, chunk.start_seconds)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open clip
+            </a>
           </div>
         ))}
       </section>

@@ -15,4 +15,5 @@ ingest/youtube_cookies.json
 *.egg-info/
 .DS_Store
 .vercel/
+supabase/.temp/
 ingest/backfill.log

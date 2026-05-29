@@ -50,6 +50,41 @@ python -m tbpn_ingest embed
 python -m tbpn_ingest ingest --since 2025-05-01
 ```
 
+### Guest appearances
+
+Guest timestamp data comes from the sibling [`tbpn-guests-research`](../tbpn-guests-research) repo (or set `GUEST_DATA_DIR`).
+
+Apply the guest migrations first (if not already applied):
+
+```bash
+# Option A: direct Postgres (set SUPABASE_DB_PASSWORD or DATABASE_URL)
+cd ingest
+source .venv/bin/activate
+pip install psycopg2-binary  # if needed
+python scripts/apply_guest_migrations.py
+
+# Option B: Supabase SQL editor — run both files in supabase/migrations/
+# 20260528120000_guest_appearances.sql
+# 20260528120100_hybrid_search_time_window.sql
+```
+
+Then import guest names and appearance windows:
+
+```bash
+cd ingest
+source .venv/bin/activate
+python scripts/import_guests.py
+python scripts/verify_guest_import.py
+```
+
+Re-run the import after the guest repo daily sync updates `tbpn-youtube-guest-timestamps.csv`.
+
+To smoke-test guest + topic search (with `npm run dev` running):
+
+```bash
+python scripts/verify_guest_search.py --base-url http://localhost:3000
+```
+
 ## Web
 
 ```bash
