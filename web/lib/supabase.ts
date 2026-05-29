@@ -68,6 +68,28 @@ export type EpisodeSummary = {
   duration_seconds: number;
 };
 
+export type MissingEpisodeSummary = {
+  id: string;
+  title: string;
+  published_at: string;
+  source_url: string;
+};
+
+export async function getMissingCaptionEpisodes(): Promise<MissingEpisodeSummary[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("episodes")
+    .select("id, title, published_at, source_url")
+    .eq("ingest_status", "no_captions")
+    .order("published_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
 export type TranscriptChunk = {
   start_seconds: number;
   end_seconds: number;
@@ -99,6 +121,15 @@ export function formatDisplayDate(isoDate: string) {
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
+    day: "numeric",
+  });
+}
+
+export function formatSidebarDate(isoDate: string) {
+  const date = new Date(`${isoDate}T12:00:00`);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
     day: "numeric",
   });
 }

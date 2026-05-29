@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { ArchiveDisclaimer } from "./components/archive-disclaimer";
 import { HomeResetProvider } from "./components/home-reset-context";
 import { SiteHeader } from "./components/site-header";
 import "./globals.css";
@@ -40,6 +41,7 @@ export default function RootLayout({
       <body className={recordLaser.className}>
         <HomeResetProvider>
           <SiteHeader />
+          <ArchiveDisclaimer />
           {children}
         </HomeResetProvider>
       </body>
