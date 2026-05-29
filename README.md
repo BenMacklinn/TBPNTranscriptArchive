@@ -52,23 +52,24 @@ python -m tbpn_ingest ingest --since 2025-05-01
 
 ### Guest appearances
 
-Guest timestamp data comes from the sibling [`tbpn-guests-research`](../tbpn-guests-research) repo (or set `GUEST_DATA_DIR`).
+Guest timestamp data comes from the [`tbpn-guests-research`](https://github.com/BenMacklinn/tbpn-guests-research) repo — the same CSV/JSON files used by [tbpnguests.vercel.app](https://tbpnguests.vercel.app). The web app reads them directly; no Supabase import is required for guest search.
 
-Apply the guest migrations first (if not already applied):
+Local dev with a sibling checkout:
 
 ```bash
-# Option A: direct Postgres (set SUPABASE_DB_PASSWORD or DATABASE_URL)
-cd ingest
-source .venv/bin/activate
-pip install psycopg2-binary  # if needed
-python scripts/apply_guest_migrations.py
-
-# Option B: Supabase SQL editor — run both files in supabase/migrations/
-# 20260528120000_guest_appearances.sql
-# 20260528120100_hybrid_search_time_window.sql
+# web/.env.local
+GUEST_DATA_DIR=../tbpn-guests-research
 ```
 
-Then import guest names and appearance windows:
+Production on Vercel (private GitHub repo):
+
+```bash
+GITHUB_SYNC_TOKEN=...   # same PAT used by the guests site
+GUEST_GITHUB_REPOSITORY=BenMacklinn/tbpn-guests-research
+GUEST_GITHUB_BRANCH=main
+```
+
+Optional: import guest rows into Supabase for analytics or offline scripts:
 
 ```bash
 cd ingest
@@ -76,8 +77,6 @@ source .venv/bin/activate
 python scripts/import_guests.py
 python scripts/verify_guest_import.py
 ```
-
-Re-run the import after the guest repo daily sync updates `tbpn-youtube-guest-timestamps.csv`.
 
 To smoke-test guest + topic search (with `npm run dev` running):
 
