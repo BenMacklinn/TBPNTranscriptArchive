@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHomeReset } from "@/app/components/home-reset-context";
 import { ResultCard } from "@/app/components/result-card";
 import { SearchSkeleton } from "@/app/components/search-skeleton";
 import { SearchWorkspace } from "@/app/components/search-workspace";
@@ -14,6 +15,7 @@ import type {
 import { formatDisplayDate } from "@/lib/supabase";
 
 export default function HomePage() {
+  const { registerReset } = useHomeReset();
   const [query, setQuery] = useState("");
   const [guestName, setGuestName] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -30,6 +32,29 @@ export default function HomePage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [windowsSearched, setWindowsSearched] = useState<number | null>(null);
   const [searchedSegments, setSearchedSegments] = useState<GuestSegmentSummary[]>([]);
+  const [workspaceKey, setWorkspaceKey] = useState(0);
+
+  useEffect(() => {
+    registerReset(() => {
+      setQuery("");
+      setGuestName("");
+      setDateFrom("");
+      setDateTo("");
+      setEpisodeFilter("");
+      setSelectedEpisodeId("");
+      setError(null);
+      setMatches([]);
+      setExpanded(new Set());
+      setOpenTranscripts([]);
+      setHasSearched(false);
+      setWindowsSearched(null);
+      setSearchedSegments([]);
+      setLoading(false);
+      setTranscriptLoading(false);
+      setWorkspaceKey((key) => key + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }, [registerReset]);
 
   useEffect(() => {
     async function loadEpisodes() {
@@ -155,6 +180,7 @@ export default function HomePage() {
   return (
     <main className="page">
       <SearchWorkspace
+        key={workspaceKey}
         query={query}
         onQueryChange={setQuery}
         guestName={guestName}
