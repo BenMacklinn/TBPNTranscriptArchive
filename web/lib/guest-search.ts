@@ -1,3 +1,4 @@
+import { enrichMatchReasonsWithLlm } from "@/lib/match-reasons";
 import {
   getGuestAppearances,
   resolveGuest,
@@ -201,7 +202,10 @@ export async function runGuestTopicSearch(params: {
       date: row.published_at,
       start_time: row.start_time,
       end_time: row.end_time,
-      summary: formatMatchReason(row, { guestName: matchingWindow.guestName }),
+      summary: formatMatchReason(row, {
+        guestName: matchingWindow.guestName,
+        query: topic,
+      }),
       clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
       youtube_video_id: row.youtube_video_id,
       start_seconds: row.start_seconds,
@@ -209,7 +213,10 @@ export async function runGuestTopicSearch(params: {
       score: row.score,
       rank: index + 1,
       confidence: row.confidence,
-      match_reason: formatMatchReason(row, { guestName: matchingWindow.guestName }),
+      match_reason: formatMatchReason(row, {
+        guestName: matchingWindow.guestName,
+        query: topic,
+      }),
       shared_terms: row.shared_terms,
       shared_entities: row.shared_entities,
       match_type: row.match_type,
@@ -224,6 +231,6 @@ export async function runGuestTopicSearch(params: {
     guestName: guest.person,
     windowsSearched: windows.length,
     searchedSegments: toSegmentSummaries(windows),
-    matches,
+    matches: await enrichMatchReasonsWithLlm(topic, matches),
   };
 }

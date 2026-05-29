@@ -1,10 +1,11 @@
+import { enrichMatchReasonsWithLlm } from "@/lib/match-reasons";
 import { runGuestTopicSearch } from "@/lib/guest-search";
 import {
   embedQuery,
   fetchHybridResults,
   mergeHybridResults,
 } from "@/lib/hybrid-search";
-import { parseQuerySignals, rerankSearchResultsDetailed, takeRelevantResults, formatMatchReason } from "@/lib/rerank";
+import { parseQuerySignals, rerankSearchResultsDetailed, takeRelevantResults } from "@/lib/rerank";
 import {
   buildClipUrl,
   getSupabaseAdmin,
@@ -95,7 +96,7 @@ export async function runSearch(params: {
     date: row.published_at,
     start_time: row.start_time,
     end_time: row.end_time,
-    summary: formatMatchReason(row),
+    summary: row.reason,
     clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
     youtube_video_id: row.youtube_video_id,
     start_seconds: row.start_seconds,
@@ -103,11 +104,14 @@ export async function runSearch(params: {
     score: row.score,
     rank: index + 1,
     confidence: row.confidence,
-    match_reason: formatMatchReason(row),
+    match_reason: row.reason,
     shared_terms: row.shared_terms,
     shared_entities: row.shared_entities,
     match_type: row.match_type,
   }));
 
-  return { query: params.query, matches };
+  return {
+    query: params.query,
+    matches: await enrichMatchReasonsWithLlm(params.query, matches),
+  };
 }

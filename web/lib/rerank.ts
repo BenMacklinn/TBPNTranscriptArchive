@@ -473,11 +473,132 @@ export function resolveMatchPreview(input: {
   };
 }
 
+function summarizeQueryPhrase(query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return "your search";
+  }
+  if (trimmed.length <= 72) {
+    return `"${trimmed}"`;
+  }
+  return `"${trimmed.slice(0, 69)}..."`;
+}
+
+function termFrequencyInText(text: string, terms: string[]) {
+  const normalized = normalizeText(text);
+  const freq = new Map<string, number>();
+
+  for (const term of terms) {
+    const pattern = new RegExp(`(?<![\\w-])${escapeRegExp(term)}(?![\\w-])`, "gi");
+    freq.set(term, (normalized.match(pattern) || []).length);
+  }
+
+  return freq;
+}
+
+function extractTopChunkTerms(
+  chunkText: string,
+  episodeTitle: string,
+  excludeTerms: Set<string>,
+  limit = 4,
+) {
+  const corpus = `${chunkText} ${episodeTitle}`;
+  const terms = tokenizeImportantTerms(corpus);
+  const freq = termFrequencyInText(corpus, terms);
+
+  return terms
+    .filter((term) => !excludeTerms.has(term) && (freq.get(term) ?? 0) > 0)
+    .sort((left, right) => (freq.get(right) ?? 0) - (freq.get(left) ?? 0))
+    .slice(0, limit);
+}
+
+function findRelatedWording(queryTerms: string[], chunkText: string, episodeTitle: string) {
+  const chunkTerms = tokenizeImportantTerms(`${chunkText} ${episodeTitle}`);
+  const related = new Set<string>();
+
+  for (const queryTerm of queryTerms) {
+    for (const chunkTerm of chunkTerms) {
+      if (queryTerm === chunkTerm) {
+        continue;
+      }
+
+      const stemLength = Math.min(queryTerm.length, chunkTerm.length, 6);
+      if (stemLength >= 4 && queryTerm.slice(0, stemLength) === chunkTerm.slice(0, stemLength)) {
+        related.add(chunkTerm);
+      }
+    }
+
+    const normalized = normalizeText(chunkText);
+    for (const word of normalized.split(/\s+/)) {
+      if (word.length < 4 || queryTerm.length < 4 || word === queryTerm) {
+        continue;
+      }
+
+      if (word.startsWith(queryTerm.slice(0, 5)) || queryTerm.startsWith(word.slice(0, 5))) {
+        related.add(word);
+      }
+    }
+  }
+
+  return [...related].slice(0, 4);
+}
+
+function buildSemanticMatchReason(input: {
+  query: string;
+  chunkText: string;
+  episodeTitle: string;
+  vectorScore: number;
+  queryTerms: string[];
+}) {
+  const queryPhrase = summarizeQueryPhrase(input.query);
+  const excludeTerms = new Set(input.queryTerms);
+  const relatedWording = findRelatedWording(input.queryTerms, input.chunkText, input.episodeTitle);
+
+  if (relatedWording.length > 0) {
+    const wording = relatedWording.map((term) => `"${term}"`).join(", ");
+    return `Discusses similar ideas using ${wording}, connected to ${queryPhrase}.`;
+  }
+
+  const topChunkTerms = extractTopChunkTerms(
+    input.chunkText,
+    input.episodeTitle,
+    excludeTerms,
+    4,
+  );
+
+  if (topChunkTerms.length >= 2) {
+    return `Covers ${topChunkTerms.slice(0, 3).join(", ")} in a segment tied to ${queryPhrase}.`;
+  }
+
+  if (topChunkTerms.length === 1) {
+    return `Centers on ${topChunkTerms[0]} in a segment tied to ${queryPhrase}.`;
+  }
+
+  const snippet = collectSentenceCandidates(input.chunkText)[0];
+  if (snippet) {
+    const preview = snippet.length <= 120 ? snippet : `${snippet.slice(0, 117).trim()}…`;
+    return `Matched this segment — "${preview}" — because it relates to ${queryPhrase}.`;
+  }
+
+  if (input.vectorScore >= 0.72) {
+    return `Strong contextual overlap with ${queryPhrase} in this part of the episode.`;
+  }
+
+  if (input.vectorScore >= 0.55) {
+    return `Likely related to ${queryPhrase} based on what is being discussed here.`;
+  }
+
+  return `Possible connection to ${queryPhrase} from the surrounding conversation.`;
+}
+
 function buildMatchReason(input: {
   sharedTerms: string[];
   sharedEntities: string[];
   vectorScore: number;
   matchType: "keyword" | "semantic" | "hybrid";
+  query?: string;
+  chunkText?: string;
+  episodeTitle?: string;
 }): string {
   if (input.sharedEntities.length > 0 && input.sharedTerms.length > 0) {
     return `Mentions ${input.sharedEntities.join(", ")} and uses your terms ${input.sharedTerms.slice(0, 4).join(", ")}.`;
@@ -495,8 +616,14 @@ function buildMatchReason(input: {
     return `Mentions "${input.sharedTerms[0]}" from your query.`;
   }
 
-  if (input.matchType === "semantic" || input.matchType === "hybrid") {
-    return "Same topic as your query — matched by meaning, not exact wording.";
+  if (input.query && input.chunkText) {
+    return buildSemanticMatchReason({
+      query: input.query,
+      chunkText: input.chunkText,
+      episodeTitle: input.episodeTitle ?? "",
+      vectorScore: input.vectorScore,
+      queryTerms: tokenizeImportantTerms(input.query),
+    });
   }
 
   return "Related to your search terms.";
@@ -538,8 +665,16 @@ function buildExcludeSet(guestName?: string) {
 }
 
 export function formatMatchReason(
-  row: Pick<RankedSearchResult, "shared_terms" | "shared_entities" | "match_type">,
-  options?: { guestName?: string },
+  row: Pick<
+    RankedSearchResult,
+    | "shared_terms"
+    | "shared_entities"
+    | "match_type"
+    | "chunk_text"
+    | "episode_title"
+    | "vector_score"
+  >,
+  options?: { guestName?: string; query?: string },
 ) {
   const exclude = buildExcludeSet(options?.guestName);
   const sharedTerms = filterExcludedTerms(row.shared_terms, exclude);
@@ -548,8 +683,11 @@ export function formatMatchReason(
   return buildMatchReason({
     sharedTerms,
     sharedEntities,
-    vectorScore: 0,
+    vectorScore: row.vector_score,
     matchType: row.match_type,
+    query: options?.query,
+    chunkText: row.chunk_text,
+    episodeTitle: row.episode_title,
   });
 }
 
@@ -607,6 +745,9 @@ function rankRows(query: string, rows: HybridSearchRow[]): RankedSearchResult[] 
       sharedEntities: scored.sharedEntities,
       vectorScore: scored.vectorScore,
       matchType,
+      query,
+      chunkText: row.chunk_text,
+      episodeTitle: row.episode_title,
     });
 
     return {
