@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { SearchMatch } from "@/lib/supabase";
 import { formatDisplayDate, formatDisplayTimestamp } from "@/lib/supabase";
-import { tokenizeImportantTerms } from "@/lib/rerank";
+import { tokenizeHighlightTerms } from "@/lib/rerank";
 
 type ResultCardProps = {
   match: SearchMatch;
@@ -13,7 +13,7 @@ type ResultCardProps = {
 };
 
 function highlightSnippet(text: string, query: string) {
-  const terms = tokenizeImportantTerms(query);
+  const terms = tokenizeHighlightTerms(query);
   if (!terms.length) {
     return text;
   }

@@ -80,6 +80,36 @@ export function tokenizeImportantTerms(text: string) {
   );
 }
 
+// Terms ignored for search ranking but still highlighted when the user types them.
+const HIGHLIGHTABLE_STOPWORDS = new Set([
+  "tbpn",
+  "clip",
+  "episode",
+  "stream",
+  "talk",
+  "talked",
+  "discuss",
+  "discussed",
+  "said",
+]);
+
+export function tokenizeHighlightTerms(text: string) {
+  return unique(
+    normalizeText(text)
+      .split(" ")
+      .map((word) => word.replace(/^[.-]+|[.-]+$/g, ""))
+      .filter((word) => {
+        if (word.length <= 1 || /^\d+$/.test(word)) {
+          return false;
+        }
+        if (HIGHLIGHTABLE_STOPWORDS.has(word)) {
+          return true;
+        }
+        return word.length > 2 && !STOPWORDS.has(word);
+      }),
+  );
+}
+
 export function extractEntities(text: string) {
   const properNouns = [...text.matchAll(/\b[A-Z][A-Za-z0-9]+(?:\s+[A-Z][A-Za-z0-9]+){0,3}\b/g)]
     .map((match) => match[0].toLowerCase())
