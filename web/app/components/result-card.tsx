@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { ClipEmbed } from "@/app/components/clip-embed";
 import type { SearchMatch } from "@/lib/supabase";
 import { formatDisplayDate, formatDisplayTimestamp, buildNewsmaxClipUrl } from "@/lib/supabase";
@@ -209,9 +208,6 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
           <button className="btn btn-secondary result-action-btn" type="button" onClick={onToggle}>
             {expanded ? "Hide" : "Transcript"}
           </button>
-          <Link className="btn btn-secondary result-action-btn" href={`/episode/${match.episode_id}`}>
-            Episode
-          </Link>
           <a
             className="btn btn-secondary result-action-btn"
             href={buildNewsmaxClipUrl(match.date)}

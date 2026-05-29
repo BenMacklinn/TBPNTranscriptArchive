@@ -449,8 +449,8 @@ textarea {
 
 .result-actions-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   width: 100%;
 }
 
@@ -531,17 +531,19 @@ textarea {
 .btn.result-action-btn {
   width: 100%;
   min-width: 0;
-  padding: 8px 4px;
-  font-size: 0.68rem;
-  line-height: 1.15;
-  letter-spacing: 0.01em;
+  padding: 11px 10px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
   white-space: normal;
   text-wrap: balance;
   transform: none;
+  border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
 .btn.result-action-btn:hover {
   transform: none;
+  border-color: #fff;
 }
 
 /* ── Filters ── */
