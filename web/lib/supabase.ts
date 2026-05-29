@@ -47,6 +47,7 @@ export type SearchMatch = {
   shared_terms: string[];
   shared_entities: string[];
   match_type: "keyword" | "semantic" | "hybrid";
+  summary_source?: "llm" | "heuristic";
   guest_name?: string;
   guest_segment_start?: string;
   guest_segment_url?: string;

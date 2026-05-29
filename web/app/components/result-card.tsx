@@ -86,6 +86,42 @@ function parseClipFromUrl(clipUrl: string) {
   }
 }
 
+function MatchPreview({
+  preview,
+  query,
+  wordMatchTerms,
+  summarySource,
+}: {
+  preview: ReturnType<typeof resolveMatchPreview>;
+  query: string;
+  wordMatchTerms: string[];
+  summarySource?: SearchMatch["summary_source"];
+}) {
+  if (preview.mode === "sentence") {
+    return (
+      <blockquote className="result-preview result-preview-quote">
+        <span className="result-preview-label">From transcript</span>
+        <p className="result-preview-body">
+          {highlightSnippet(preview.text, query, wordMatchTerms)}
+        </p>
+      </blockquote>
+    );
+  }
+
+  const isLlm = summarySource === "llm";
+
+  return (
+    <div
+      className={`result-preview result-preview-summary${isLlm ? " result-preview-llm" : " result-preview-heuristic"}`}
+    >
+      <span className="result-preview-label">
+        {isLlm ? "Why this matched" : "Match note"}
+      </span>
+      <p className="result-preview-body">{preview.text}</p>
+    </div>
+  );
+}
+
 export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps) {
   const [clipOpen, setClipOpen] = useState(false);
   const isSemantic = match.match_type === "semantic" || match.match_type === "hybrid";
@@ -126,11 +162,12 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
         </div>
       </header>
 
-      <p className="result-text">
-        {preview.mode === "sentence"
-          ? highlightSnippet(preview.text, query, wordMatchTerms)
-          : preview.text}
-      </p>
+      <MatchPreview
+        preview={preview}
+        query={query}
+        wordMatchTerms={wordMatchTerms}
+        summarySource={match.summary_source}
+      />
 
       {showSplitMedia ? (
         <div className="result-media-row">

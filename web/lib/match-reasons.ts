@@ -121,6 +121,7 @@ export async function enrichMatchReasonsWithLlm(query: string, matches: SearchMa
         ...updated[index],
         match_reason: reason,
         summary: reason,
+        summary_source: "llm",
       };
     });
 
