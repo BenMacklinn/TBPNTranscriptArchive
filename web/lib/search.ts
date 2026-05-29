@@ -97,6 +97,8 @@ export async function runSearch(params: {
     end_time: row.end_time,
     summary: formatMatchReason(row),
     clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
+    youtube_video_id: row.youtube_video_id,
+    start_seconds: row.start_seconds,
     transcript_snippet: row.chunk_text,
     score: row.score,
     rank: index + 1,

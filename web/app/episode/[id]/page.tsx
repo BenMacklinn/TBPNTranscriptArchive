@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FormattedTranscript } from "@/app/components/formatted-transcript";
 import {
   buildClipUrl,
   formatDisplayDate,
@@ -56,7 +57,7 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
             <div className="chunk-time">
               {formatDisplayTimestamp(chunk.start_time)} – {formatDisplayTimestamp(chunk.end_time)}
             </div>
-            <p className="chunk-text">{chunk.text}</p>
+            <FormattedTranscript text={chunk.text} className="chunk-text" />
             <a
               className="btn btn-secondary btn-sm"
               href={buildClipUrl(episode.youtube_video_id, chunk.start_seconds)}

@@ -7,6 +7,7 @@ import {
   formatDisplayDate,
   formatDisplayTimestamp,
 } from "@/lib/supabase";
+import { FormattedTranscript } from "./formatted-transcript";
 
 type TranscriptPanelProps = {
   transcript: EpisodeTranscript;
@@ -48,7 +49,7 @@ export function TranscriptPanel({ transcript, onClose }: TranscriptPanelProps) {
             <div className="chunk-time">
               {formatDisplayTimestamp(chunk.start_time)} – {formatDisplayTimestamp(chunk.end_time)}
             </div>
-            <p className="chunk-text">{chunk.text}</p>
+            <FormattedTranscript text={chunk.text} className="chunk-text" />
             <a
               className="btn btn-secondary btn-sm"
               href={buildClipUrl(transcript.episode.youtube_video_id, chunk.start_seconds)}

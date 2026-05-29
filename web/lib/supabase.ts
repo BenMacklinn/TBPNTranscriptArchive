@@ -37,6 +37,8 @@ export type SearchMatch = {
   end_time: string;
   summary: string;
   clip_url: string;
+  youtube_video_id: string;
+  start_seconds: number;
   transcript_snippet: string;
   score: number;
   rank: number;
@@ -80,6 +82,15 @@ export type EpisodeTranscript = {
 
 export function buildClipUrl(youtubeVideoId: string, startSeconds: number) {
   return `https://www.youtube.com/watch?v=${youtubeVideoId}&t=${startSeconds}s`;
+}
+
+export function buildClipEmbedUrl(youtubeVideoId: string, startSeconds: number) {
+  const params = new URLSearchParams({
+    start: String(Math.max(startSeconds, 0)),
+    autoplay: "1",
+    rel: "0",
+  });
+  return `https://www.youtube.com/embed/${youtubeVideoId}?${params.toString()}`;
 }
 
 export function formatDisplayDate(isoDate: string) {

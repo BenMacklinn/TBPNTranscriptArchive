@@ -1,4 +1,5 @@
 import type { HybridSearchRow } from "@/lib/supabase";
+import { formatTranscriptForDisplay, formatTranscriptLines } from "@/lib/format-transcript";
 
 export type SearchConfidence = "strong" | "medium" | "weak" | "no";
 
@@ -255,6 +256,68 @@ function scoreChunkCandidate(input: {
       normalizeText(chunkText).includes(term),
     ).length,
   };
+}
+
+function countTermHits(text: string, terms: string[]) {
+  const normalized = normalizeText(text);
+  return terms.reduce(
+    (count, term) => count + (normalized.includes(normalizeText(term)) ? 1 : 0),
+    0,
+  );
+}
+
+export function extractMatchSentence(text: string, terms: string[]) {
+  const uniqueTerms = unique(terms.map((term) => term.trim()).filter(Boolean));
+  if (!text.trim() || uniqueTerms.length === 0) {
+    return null;
+  }
+
+  const formatted = formatTranscriptForDisplay(text);
+  const lines = formatTranscriptLines(text);
+  const sentences = formatted
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const candidates =
+    lines.length > 1
+      ? lines
+      : sentences.length > 0
+        ? sentences
+        : [formatted.trim()];
+
+  let bestSentence = candidates[0];
+  let bestScore = -1;
+
+  for (const sentence of candidates) {
+    const score = countTermHits(sentence, uniqueTerms);
+    if (score > bestScore) {
+      bestScore = score;
+      bestSentence = sentence;
+    }
+  }
+
+  if (bestScore > 0) {
+    return bestSentence;
+  }
+
+  for (const term of uniqueTerms) {
+    const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const match = formatted.match(pattern);
+    if (match?.index != null) {
+      const start = Math.max(0, match.index - 90);
+      const end = Math.min(formatted.length, match.index + term.length + 140);
+      let excerpt = formatted.slice(start, end).trim();
+      if (start > 0) {
+        excerpt = `…${excerpt}`;
+      }
+      if (end < formatted.length) {
+        excerpt = `${excerpt}…`;
+      }
+      return excerpt;
+    }
+  }
+
+  return null;
 }
 
 function buildMatchReason(input: {

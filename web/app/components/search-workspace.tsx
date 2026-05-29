@@ -79,6 +79,7 @@ export function SearchWorkspace({
 
   function selectGuest(guest: GuestNameOption) {
     onGuestNameChange(guest.person);
+    setGuestSuggestions([]);
     setGuestSuggestionsOpen(false);
     setGuestHighlightIndex(-1);
     searchInputRef.current?.focus();
@@ -91,11 +92,15 @@ export function SearchWorkspace({
   useEffect(() => {
     const needle = guestName.trim();
     if (!needle) {
+      setGuestSuggestions([]);
+      setGuestSuggestionsOpen(false);
+      setGuestHighlightIndex(-1);
       return;
     }
 
     const timeout = window.setTimeout(() => {
-      void fetchGuestSuggestions(needle, true);
+      const shouldOpenMenu = document.activeElement === guestInputRef.current;
+      void fetchGuestSuggestions(needle, shouldOpenMenu);
     }, 150);
 
     return () => window.clearTimeout(timeout);
