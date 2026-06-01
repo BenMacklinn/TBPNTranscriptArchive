@@ -123,6 +123,40 @@ button {
   flex-shrink: 0;
 }
 
+.site-header-nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.site-header-nav-link {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.site-header-nav-link:hover,
+.site-header-nav-link.is-active {
+  color: var(--text);
+  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.site-header-nav-link.is-active {
+  border-color: var(--tbpn-green-border);
+  color: var(--tbpn-green-strong);
+}
+
 /* ── Page layout ── */
 
 .missing-transcripts-menu {
@@ -286,6 +320,80 @@ button {
   color: var(--muted);
   line-height: 1.55;
   font-size: 0.95rem;
+}
+
+/* ── API docs ── */
+
+.api-docs-page {
+  gap: 18px;
+}
+
+.api-endpoint-list {
+  display: grid;
+  gap: 12px;
+}
+
+.api-endpoint {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.api-endpoint-intro {
+  display: grid;
+  gap: 4px;
+}
+
+.api-endpoint-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.api-endpoint-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.api-path {
+  color: var(--tbpn-green-strong);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.88rem;
+  word-break: break-word;
+}
+
+.api-code {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.35);
+  color: #d8f3e4;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 /* ── Search form ── */

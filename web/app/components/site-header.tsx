@@ -48,6 +48,21 @@ export function SiteHeader() {
             />
           </span>
         </Link>
+        <nav className="site-header-nav" aria-label="Site sections">
+          <Link
+            className={`site-header-nav-link${pathname === "/" ? " is-active" : ""}`}
+            href="/"
+            onClick={(event) => handleHomeClick(event, pathname, homeReset?.resetHome)}
+          >
+            Search
+          </Link>
+          <Link
+            className={`site-header-nav-link${pathname === "/api-docs" ? " is-active" : ""}`}
+            href="/api-docs"
+          >
+            API
+          </Link>
+        </nav>
       </div>
     </header>
   );
