@@ -16,10 +16,11 @@ export type ReadTranscriptChunk = {
   text: string;
   speaker: string | null;
   clip_url: string;
-  words: ReadTranscriptWord[];
+  words_url: string;
 };
 
 export type ReadTranscriptWord = {
+  word_index: number;
   word: string;
   start_seconds: number;
   end_seconds: number;
@@ -29,6 +30,20 @@ export type ReadTranscript = {
   episode: EpisodeTranscript["episode"];
   chunk_count: number;
   chunks: ReadTranscriptChunk[];
+};
+
+export type ReadChunkWords = {
+  episode_id: string;
+  chunk: {
+    id: string;
+    start_seconds: number;
+    end_seconds: number;
+    start_time: string;
+    end_time: string;
+    text: string;
+  };
+  word_count: number;
+  words: ReadTranscriptWord[];
 };
 
 export type ReadSearchResult = {
@@ -69,22 +84,6 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     throw new Error(chunksError.message);
   }
 
-  const words = await loadEpisodeWords(episodeId);
-
-  const wordsByChunk = new Map<string, ReadTranscriptWord[]>();
-  for (const word of words ?? []) {
-    if (!word.chunk_id) {
-      continue;
-    }
-    const bucket = wordsByChunk.get(word.chunk_id) ?? [];
-    bucket.push({
-      word: word.word,
-      start_seconds: Number(word.start_seconds),
-      end_seconds: Number(word.end_seconds),
-    });
-    wordsByChunk.set(word.chunk_id, bucket);
-  }
-
   const detailedChunks: ReadTranscriptChunk[] = (chunks ?? []).map((chunk) => ({
     id: chunk.id,
     start_seconds: chunk.start_seconds,
@@ -94,7 +93,7 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     text: chunk.text,
     speaker: chunk.speaker,
     clip_url: buildClipUrl(episode.youtube_video_id, chunk.start_seconds),
-    words: wordsByChunk.get(chunk.id) ?? [],
+    words_url: `/api/episodes/${encodeURIComponent(episodeId)}/chunks/${encodeURIComponent(chunk.id)}/words`,
   }));
 
   return {
@@ -105,13 +104,16 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
 }
 
 type TranscriptWordRow = {
-  chunk_id: string | null;
+  word_index: number;
   word: string;
   start_seconds: number | string;
   end_seconds: number | string;
 };
 
-async function loadEpisodeWords(episodeId: string): Promise<TranscriptWordRow[]> {
+async function loadChunkWordRows(
+  episodeId: string,
+  chunkId: string,
+): Promise<TranscriptWordRow[]> {
   const supabase = getSupabaseAdmin();
   const pageSize = 1000;
   const words: TranscriptWordRow[] = [];
@@ -119,8 +121,9 @@ async function loadEpisodeWords(episodeId: string): Promise<TranscriptWordRow[]>
   for (let start = 0; ; start += pageSize) {
     const { data, error } = await supabase
       .from("transcript_words")
-      .select("chunk_id, word, start_seconds, end_seconds")
+      .select("word_index, word, start_seconds, end_seconds")
       .eq("episode_id", episodeId)
+      .eq("chunk_id", chunkId)
       .order("word_index", { ascending: true })
       .range(start, start + pageSize - 1);
 
@@ -135,6 +138,50 @@ async function loadEpisodeWords(episodeId: string): Promise<TranscriptWordRow[]>
       return words;
     }
   }
+}
+
+export async function loadChunkWords(
+  episodeId: string,
+  chunkId: string,
+): Promise<ReadChunkWords> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: chunk, error: chunkError } = await supabase
+    .from("transcript_chunks")
+    .select("id, episode_id, start_seconds, end_seconds, start_time, end_time, text")
+    .eq("id", chunkId)
+    .eq("episode_id", episodeId)
+    .maybeSingle();
+
+  if (chunkError) {
+    throw new Error(chunkError.message);
+  }
+
+  if (!chunk) {
+    throw new ReadApiNotFoundError(`Chunk not found: ${chunkId}`);
+  }
+
+  const rows = await loadChunkWordRows(episodeId, chunkId);
+  const words = rows.map((word) => ({
+    word_index: Number(word.word_index),
+    word: word.word,
+    start_seconds: Number(word.start_seconds),
+    end_seconds: Number(word.end_seconds),
+  }));
+
+  return {
+    episode_id: episodeId,
+    chunk: {
+      id: chunk.id,
+      start_seconds: chunk.start_seconds,
+      end_seconds: chunk.end_seconds,
+      start_time: chunk.start_time,
+      end_time: chunk.end_time,
+      text: chunk.text,
+    },
+    word_count: words.length,
+    words,
+  };
 }
 
 export class ReadApiNotFoundError extends Error {

@@ -91,18 +91,13 @@ export async function getMissingCaptionEpisodes(): Promise<MissingEpisodeSummary
 }
 
 export type TranscriptChunk = {
+  id?: string;
   start_seconds: number;
   end_seconds: number;
   start_time: string;
   end_time: string;
   text: string;
-  words?: TranscriptWord[];
-};
-
-export type TranscriptWord = {
-  word: string;
-  start_seconds: number;
-  end_seconds: number;
+  words_url?: string;
 };
 
 export type EpisodeTranscript = {
