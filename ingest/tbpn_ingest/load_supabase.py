@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, create_client
 
-from tbpn_ingest.chunk import TranscriptChunk
+from tbpn_ingest.chunk import TranscriptChunk, WordTimestamp
 from tbpn_ingest.embed import embed_texts
 from tbpn_ingest.list_episodes import Episode
 from tbpn_ingest.pinecone_store import (
@@ -23,6 +23,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 CHUNK_INSERT_BATCH_SIZE = 10
 CHUNK_INSERT_MAX_RETRIES = 8
+WORD_INSERT_BATCH_SIZE = 500
 
 
 def insert_chunk_batch(client: Client, rows: list[dict]) -> None:
@@ -40,6 +41,13 @@ def insert_chunk_batch(client: Client, rows: list[dict]) -> None:
                 flush=True,
             )
             time.sleep(wait_seconds)
+
+
+def insert_word_batch(client: Client, rows: list[dict]) -> None:
+    for start in range(0, len(rows), WORD_INSERT_BATCH_SIZE):
+        client.table("transcript_words").insert(
+            rows[start : start + WORD_INSERT_BATCH_SIZE]
+        ).execute()
 
 
 def get_supabase_client() -> Client:
@@ -69,8 +77,10 @@ def replace_episode_chunks(
     client: Client,
     episode: Episode,
     chunks: list[TranscriptChunk],
+    words: list[WordTimestamp] | None = None,
 ) -> int:
     upsert_episode(client, episode, "pending")
+    client.table("transcript_words").delete().eq("episode_id", episode.id).execute()
     client.table("transcript_chunks").delete().eq("episode_id", episode.id).execute()
 
     if not chunks:
@@ -96,7 +106,6 @@ def replace_episode_chunks(
             "end_time": chunk.end_time,
             "text": chunk.text,
             "speaker": None,
-            **({} if use_pinecone else {"embedding": embedding}),
         }
         for chunk, embedding in zip(chunks, embeddings, strict=True)
     ]
@@ -123,8 +132,37 @@ def replace_episode_chunks(
         )
         print(f"  upserted {upserted} vectors to Pinecone", flush=True)
 
+    if words:
+        word_rows = build_word_rows(episode.id, rows, words)
+        insert_word_batch(client, word_rows)
+        print(f"  inserted {len(word_rows)} word timestamps", flush=True)
+
     upsert_episode(client, episode, "done")
     return len(rows)
+
+
+def build_word_rows(
+    episode_id: str,
+    chunk_rows: list[dict],
+    words: list[WordTimestamp],
+) -> list[dict]:
+    def find_chunk_id(word: WordTimestamp) -> str | None:
+        for row in chunk_rows:
+            if row["start_seconds"] <= word.start_seconds < row["end_seconds"]:
+                return row["id"]
+        return None
+
+    return [
+        {
+            "episode_id": episode_id,
+            "chunk_id": find_chunk_id(word),
+            "word_index": index,
+            "word": word.word,
+            "start_seconds": round(word.start_seconds, 3),
+            "end_seconds": round(word.end_seconds, 3),
+        }
+        for index, word in enumerate(words)
+    ]
 
 
 def embed_missing_chunks(client: Client | None = None) -> int:

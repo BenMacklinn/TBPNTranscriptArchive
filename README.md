@@ -40,6 +40,10 @@ python -m tbpn_ingest list
 # Full backfill: fetch captions, chunk, embed, load
 python -m tbpn_ingest ingest --full
 
+# Audio transcription backfill: download audio, transcribe with word timestamps,
+# chunk/embed/load the same way as caption ingest
+python -m tbpn_ingest ingest --full --transcribe
+
 # Resume after partial run
 python -m tbpn_ingest ingest --full --skip-done
 
@@ -48,6 +52,28 @@ python -m tbpn_ingest embed
 
 # Incremental since date
 python -m tbpn_ingest ingest --since 2025-05-01
+```
+
+### Word-level transcription
+
+The `--transcribe` ingest path uses `yt-dlp` to download episode audio,
+`ffmpeg`/`ffprobe` to split and re-encode it, and OpenAI `whisper-1` with
+word timestamp granularity. Chunks are still stored and embedded through the
+same `transcript_chunks` flow; word timings are stored in `transcript_words`
+and returned by the transcript API as `chunk.words`.
+
+Required local tools:
+
+```bash
+brew install ffmpeg
+```
+
+Useful environment overrides:
+
+```bash
+TRANSCRIPTION_MODEL=whisper-1
+TRANSCRIPTION_AUDIO_CHUNK_SECONDS=600
+TRANSCRIPTION_AUDIO_BITRATE=48k
 ```
 
 ### Guest appearances

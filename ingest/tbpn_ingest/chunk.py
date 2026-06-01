@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from tbpn_ingest.fetch_transcripts import CaptionSegment
@@ -19,10 +20,24 @@ class TranscriptChunk:
     text: str
 
 
+@dataclass
+class WordTimestamp:
+    word: str
+    start_seconds: float
+    end_seconds: float
+
+
 def format_timestamp(total_seconds: int) -> str:
     hours, remainder = divmod(max(total_seconds, 0), 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def join_transcript_text(parts: list[str]) -> str:
+    text = " ".join(part.strip() for part in parts if part.strip()).strip()
+    text = re.sub(r"\s+([,.;:!?%)\]])", r"\1", text)
+    text = re.sub(r"([([{])\s+", r"\1", text)
+    return text
 
 
 def chunk_transcript(segments: list[CaptionSegment]) -> list[TranscriptChunk]:
@@ -50,7 +65,7 @@ def chunk_transcript(segments: list[CaptionSegment]) -> list[TranscriptChunk]:
             should_flush = duration >= TARGET_MIN_SECONDS or duration > 0
 
         if should_flush and buffer_text:
-            text = " ".join(buffer_text).strip()
+            text = join_transcript_text(buffer_text)
             if text:
                 chunks.append(
                     TranscriptChunk(
@@ -78,3 +93,16 @@ def chunk_transcript(segments: list[CaptionSegment]) -> list[TranscriptChunk]:
         index += 1
 
     return chunks
+
+
+def chunk_word_timestamps(words: list[WordTimestamp]) -> list[TranscriptChunk]:
+    segments = [
+        CaptionSegment(
+            start=word.start_seconds,
+            duration=max(word.end_seconds - word.start_seconds, 0.01),
+            text=word.word,
+        )
+        for word in words
+        if word.word.strip()
+    ]
+    return chunk_transcript(segments)

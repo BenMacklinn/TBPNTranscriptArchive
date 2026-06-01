@@ -96,6 +96,13 @@ export type TranscriptChunk = {
   start_time: string;
   end_time: string;
   text: string;
+  words?: TranscriptWord[];
+};
+
+export type TranscriptWord = {
+  word: string;
+  start_seconds: number;
+  end_seconds: number;
 };
 
 export type EpisodeTranscript = {

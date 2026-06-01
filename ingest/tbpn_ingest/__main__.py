@@ -5,6 +5,7 @@ import os
 from datetime import date
 
 from tbpn_ingest.chunk import chunk_transcript
+from tbpn_ingest.chunk import chunk_word_timestamps
 from tbpn_ingest.fetch_transcripts import fetch_transcript
 from tbpn_ingest.list_episodes import (
     discover_livestream_episodes,
@@ -18,6 +19,7 @@ from tbpn_ingest.load_supabase import (
     replace_episode_chunks,
 )
 from tbpn_ingest.notify import notify_ingest_stopped
+from tbpn_ingest.transcribe_audio import transcribe_youtube_video
 
 
 def cmd_list(_: argparse.Namespace) -> None:
@@ -64,9 +66,18 @@ def cmd_ingest(args: argparse.Namespace) -> str:
             continue
         print(f"[{index}/{len(episodes)}] {episode.published_at} — {episode.title}", flush=True)
         try:
-            segments = fetch_transcript(episode.youtube_video_id)
-            chunks = chunk_transcript(segments)
-            count = replace_episode_chunks(client, episode, chunks)
+            if args.transcribe:
+                words = transcribe_youtube_video(
+                    episode.youtube_video_id,
+                    duration_seconds=episode.duration_seconds,
+                    model=args.transcription_model,
+                )
+                chunks = chunk_word_timestamps(words)
+                count = replace_episode_chunks(client, episode, chunks, words=words)
+            else:
+                segments = fetch_transcript(episode.youtube_video_id)
+                chunks = chunk_transcript(segments)
+                count = replace_episode_chunks(client, episode, chunks)
             total_chunks += count
             processed += 1
             print(f"  -> {count} chunks", flush=True)
@@ -119,6 +130,16 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.add_argument("--full", action="store_true", help="Refresh manifest and ingest all")
     ingest_parser.add_argument("--since", help="Only ingest episodes on/after YYYY-MM-DD")
     ingest_parser.add_argument("--limit", type=int, help="Only ingest the first N episodes")
+    ingest_parser.add_argument(
+        "--transcribe",
+        action="store_true",
+        help="Download audio and transcribe with OpenAI word-level timestamps",
+    )
+    ingest_parser.add_argument(
+        "--transcription-model",
+        default="whisper-1",
+        help="OpenAI transcription model for --transcribe; word timestamps require whisper-1",
+    )
     ingest_parser.add_argument(
         "--skip-done",
         action="store_true",

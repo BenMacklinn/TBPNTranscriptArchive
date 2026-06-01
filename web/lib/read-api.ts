@@ -16,6 +16,13 @@ export type ReadTranscriptChunk = {
   text: string;
   speaker: string | null;
   clip_url: string;
+  words: ReadTranscriptWord[];
+};
+
+export type ReadTranscriptWord = {
+  word: string;
+  start_seconds: number;
+  end_seconds: number;
 };
 
 export type ReadTranscript = {
@@ -62,6 +69,30 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     throw new Error(chunksError.message);
   }
 
+  const { data: words, error: wordsError } = await supabase
+    .from("transcript_words")
+    .select("chunk_id, word, start_seconds, end_seconds")
+    .eq("episode_id", episodeId)
+    .order("word_index", { ascending: true });
+
+  if (wordsError) {
+    throw new Error(wordsError.message);
+  }
+
+  const wordsByChunk = new Map<string, ReadTranscriptWord[]>();
+  for (const word of words ?? []) {
+    if (!word.chunk_id) {
+      continue;
+    }
+    const bucket = wordsByChunk.get(word.chunk_id) ?? [];
+    bucket.push({
+      word: word.word,
+      start_seconds: Number(word.start_seconds),
+      end_seconds: Number(word.end_seconds),
+    });
+    wordsByChunk.set(word.chunk_id, bucket);
+  }
+
   const detailedChunks: ReadTranscriptChunk[] = (chunks ?? []).map((chunk) => ({
     id: chunk.id,
     start_seconds: chunk.start_seconds,
@@ -71,6 +102,7 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     text: chunk.text,
     speaker: chunk.speaker,
     clip_url: buildClipUrl(episode.youtube_video_id, chunk.start_seconds),
+    words: wordsByChunk.get(chunk.id) ?? [],
   }));
 
   return {
