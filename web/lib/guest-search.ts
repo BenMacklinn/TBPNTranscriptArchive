@@ -199,7 +199,7 @@ export async function runGuestTopicSearch(params: {
     return {
       episode_id: row.episode_id,
       title: row.episode_title,
-      date: row.published_at,
+      date: matchingWindow.episodeDate,
       start_time: row.start_time,
       end_time: row.end_time,
       summary: formatMatchReason(row, {
