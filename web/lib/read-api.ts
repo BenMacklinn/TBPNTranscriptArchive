@@ -93,7 +93,7 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     text: chunk.text,
     speaker: chunk.speaker,
     clip_url: buildClipUrl(episode.youtube_video_id, chunk.start_seconds),
-    words_url: `/api/episodes/${encodeURIComponent(episodeId)}/chunks/${encodeURIComponent(chunk.id)}/words`,
+    words_url: `/api/chunks/${encodeURIComponent(chunk.id)}`,
   }));
 
   return {
@@ -111,7 +111,6 @@ type TranscriptWordRow = {
 };
 
 async function loadChunkWordRows(
-  episodeId: string,
   chunkId: string,
 ): Promise<TranscriptWordRow[]> {
   const supabase = getSupabaseAdmin();
@@ -122,7 +121,6 @@ async function loadChunkWordRows(
     const { data, error } = await supabase
       .from("transcript_words")
       .select("word_index, word, start_seconds, end_seconds")
-      .eq("episode_id", episodeId)
       .eq("chunk_id", chunkId)
       .order("word_index", { ascending: true })
       .range(start, start + pageSize - 1);
@@ -141,17 +139,21 @@ async function loadChunkWordRows(
 }
 
 export async function loadChunkWords(
-  episodeId: string,
   chunkId: string,
+  episodeId?: string,
 ): Promise<ReadChunkWords> {
   const supabase = getSupabaseAdmin();
 
-  const { data: chunk, error: chunkError } = await supabase
+  let chunkQuery = supabase
     .from("transcript_chunks")
     .select("id, episode_id, start_seconds, end_seconds, start_time, end_time, text")
-    .eq("id", chunkId)
-    .eq("episode_id", episodeId)
-    .maybeSingle();
+    .eq("id", chunkId);
+
+  if (episodeId) {
+    chunkQuery = chunkQuery.eq("episode_id", episodeId);
+  }
+
+  const { data: chunk, error: chunkError } = await chunkQuery.maybeSingle();
 
   if (chunkError) {
     throw new Error(chunkError.message);
@@ -161,7 +163,7 @@ export async function loadChunkWords(
     throw new ReadApiNotFoundError(`Chunk not found: ${chunkId}`);
   }
 
-  const rows = await loadChunkWordRows(episodeId, chunkId);
+  const rows = await loadChunkWordRows(chunkId);
   const words = rows.map((word) => ({
     word_index: Number(word.word_index),
     word: word.word,
@@ -170,7 +172,7 @@ export async function loadChunkWords(
   }));
 
   return {
-    episode_id: episodeId,
+    episode_id: chunk.episode_id,
     chunk: {
       id: chunk.id,
       start_seconds: chunk.start_seconds,
