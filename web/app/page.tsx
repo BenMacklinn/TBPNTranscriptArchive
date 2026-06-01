@@ -7,6 +7,7 @@ import { SearchSkeleton } from "@/app/components/search-skeleton";
 import { SearchWorkspace } from "@/app/components/search-workspace";
 import { TranscriptPanel } from "@/app/components/transcript-panel";
 import type { GuestSegmentSummary } from "@/lib/guest-search";
+import { buildSearchPath, buildTranscriptPath } from "@/lib/api-paths";
 import type {
   EpisodeSummary,
   EpisodeTranscript,
@@ -98,17 +99,15 @@ export default function HomePage() {
     setHasSearched(true);
 
     try {
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const response = await fetch(
+        buildSearchPath({
           query: searchQuery,
-          guestName: searchGuestName || undefined,
+          guestName: searchGuestName,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           episodeId: selectedEpisodeId || undefined,
         }),
-      });
+      );
 
       const data = (await response.json()) as {
         matches?: SearchMatch[];
@@ -164,9 +163,7 @@ export default function HomePage() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/episodes/${encodeURIComponent(selectedEpisodeId)}/transcript`,
-      );
+      const response = await fetch(buildTranscriptPath(selectedEpisodeId));
       const data = (await response.json()) as EpisodeTranscript & { error?: string };
 
       if (!response.ok) {

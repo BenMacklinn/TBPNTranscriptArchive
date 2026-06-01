@@ -1,11 +1,9 @@
-import { searchGuestNames, type GuestSegmentSummary } from "@/lib/guest-search";
+import { runGuestTopicSearch, type GuestSegmentSummary } from "@/lib/guest-search";
 import { runSearch } from "@/lib/search";
 import {
   buildClipUrl,
   getSupabaseAdmin,
-  type EpisodeSummary,
   type EpisodeTranscript,
-  type GuestNameOption,
   type SearchMatch,
 } from "@/lib/supabase";
 
@@ -36,40 +34,6 @@ export type ReadSearchResult = {
   windowsSearched?: number;
   searchedSegments?: GuestSegmentSummary[];
 };
-
-export type ReadApiResult = {
-  episodes?: EpisodeSummary[];
-  guests?: GuestNameOption[];
-  search?: ReadSearchResult;
-  transcript?: ReadTranscript;
-};
-
-export type ReadApiParams = {
-  includeEpisodes?: boolean;
-  guestsQuery?: string | null;
-  searchQuery?: string | null;
-  guestName?: string | null;
-  dateFrom?: string | null;
-  dateTo?: string | null;
-  episodeId?: string | null;
-  includeTranscript?: boolean;
-  limit?: number;
-};
-
-export async function listEpisodes(): Promise<EpisodeSummary[]> {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("episodes")
-    .select("id, title, published_at, youtube_video_id, duration_seconds")
-    .eq("ingest_status", "done")
-    .order("published_at", { ascending: false });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
-}
 
 export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTranscript> {
   const supabase = getSupabaseAdmin();
@@ -123,102 +87,135 @@ export class ReadApiNotFoundError extends Error {
   }
 }
 
-export async function runReadApi(params: ReadApiParams): Promise<ReadApiResult> {
-  const tasks: Promise<void>[] = [];
-  const result: ReadApiResult = {};
+export async function assertEpisodeExists(episodeId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("episodes")
+    .select("id")
+    .eq("id", episodeId)
+    .maybeSingle();
 
-  if (params.includeEpisodes) {
-    tasks.push(
-      listEpisodes().then((episodes) => {
-        result.episodes = episodes;
-      }),
-    );
+  if (error) {
+    throw new Error(error.message);
   }
 
-  if (params.guestsQuery != null) {
-    tasks.push(
-      searchGuestNames(params.guestsQuery, 12).then((guests) => {
-        result.guests = guests;
-      }),
-    );
+  if (!data) {
+    throw new ReadApiNotFoundError(`Episode not found: ${episodeId}`);
   }
-
-  if (params.searchQuery?.trim()) {
-    tasks.push(
-      runSearch({
-        query: params.searchQuery.trim(),
-        guestName: params.guestName,
-        dateFrom: params.dateFrom,
-        dateTo: params.dateTo,
-        episodeId: params.episodeId,
-        matchCount: params.limit,
-      }).then((search) => {
-        result.search = {
-          query: search.query,
-          guestName: params.guestName?.trim() || undefined,
-          episodeId: params.episodeId?.trim() || undefined,
-          dateFrom: params.dateFrom?.trim() || undefined,
-          dateTo: params.dateTo?.trim() || undefined,
-          matches: search.matches,
-          windowsSearched: "windowsSearched" in search ? search.windowsSearched : undefined,
-          searchedSegments: "searchedSegments" in search ? search.searchedSegments : undefined,
-        };
-      }),
-    );
-  }
-
-  if (params.includeTranscript && params.episodeId?.trim()) {
-    tasks.push(
-      loadEpisodeTranscript(params.episodeId.trim()).then((transcript) => {
-        result.transcript = transcript;
-      }),
-    );
-  }
-
-  if (tasks.length === 0) {
-    result.episodes = await listEpisodes();
-    return result;
-  }
-
-  await Promise.all(tasks);
-  return result;
 }
 
-export function parseReadApiParams(searchParams: URLSearchParams): ReadApiParams {
-  const searchQuery = searchParams.get("q") ?? searchParams.get("query");
-  const guestName = searchParams.get("guestName") ?? searchParams.get("guest");
-  const dateFrom = searchParams.get("dateFrom") ?? searchParams.get("from");
-  const dateTo = searchParams.get("dateTo") ?? searchParams.get("to");
-  const episodeId = searchParams.get("episodeId") ?? searchParams.get("episode");
-  const limitValue = Number(searchParams.get("limit") ?? searchParams.get("matchCount") ?? "25");
-  const includeTranscript = parseTruthyParam(searchParams.get("transcript"));
-  const includeEpisodes = parseTruthyParam(searchParams.get("episodes"));
-  const hasGuests = searchParams.has("guests");
-  const guestsQuery = hasGuests
-    ? (searchParams.get("guests") ?? searchParams.get("guestQ") ?? "")
-    : null;
+export async function runArchiveSearch(
+  query: string,
+  filters?: {
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    episodeId?: string | null;
+  },
+  limit = 25,
+): Promise<ReadSearchResult> {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    throw new Error("Query is required");
+  }
 
-  const hasSearch = Boolean(searchQuery?.trim());
-  const hasTranscript = includeTranscript && Boolean(episodeId?.trim());
-  const shouldIncludeEpisodes =
-    includeEpisodes || (!hasSearch && !hasGuests && !hasTranscript && !includeEpisodes);
+  const search = await runSearch({
+    query: trimmedQuery,
+    dateFrom: filters?.dateFrom,
+    dateTo: filters?.dateTo,
+    episodeId: filters?.episodeId,
+    matchCount: limit,
+  });
 
   return {
-    includeEpisodes: shouldIncludeEpisodes,
-    guestsQuery: hasGuests ? guestsQuery : null,
-    searchQuery,
-    guestName,
-    dateFrom,
-    dateTo,
-    episodeId,
-    includeTranscript,
-    limit: Number.isFinite(limitValue) ? Math.min(Math.max(limitValue, 1), 50) : 25,
+    query: search.query,
+    episodeId: filters?.episodeId?.trim() || undefined,
+    dateFrom: filters?.dateFrom?.trim() || undefined,
+    dateTo: filters?.dateTo?.trim() || undefined,
+    matches: search.matches,
   };
 }
 
-function parseTruthyParam(value: string | null) {
-  if (!value) {
-    return false;
+export async function runEpisodeSearch(
+  episodeId: string,
+  query: string,
+  limit = 25,
+): Promise<ReadSearchResult> {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    throw new Error("Query is required");
   }
-  return value === "1" || value.toLowerCase() === "true" || value.toLowerCase() === "yes";
+
+  await assertEpisodeExists(episodeId);
+
+  const search = await runSearch({
+    query: trimmedQuery,
+    episodeId,
+    matchCount: limit,
+  });
+
+  return {
+    query: search.query,
+    episodeId,
+    matches: search.matches,
+  };
+}
+
+export function parseSearchLimit(searchParams: URLSearchParams, fallback = 25) {
+  const limitValue = Number(searchParams.get("limit") ?? searchParams.get("matchCount") ?? String(fallback));
+  return Number.isFinite(limitValue) ? Math.min(Math.max(limitValue, 1), 50) : fallback;
+}
+
+export function parseSearchFilters(searchParams: URLSearchParams) {
+  return {
+    dateFrom: searchParams.get("from") ?? searchParams.get("dateFrom"),
+    dateTo: searchParams.get("to") ?? searchParams.get("dateTo"),
+    episodeId: searchParams.get("episode") ?? searchParams.get("episodeId"),
+  };
+}
+
+export function parseSearchQueryFromPath(segment: string) {
+  return decodeURIComponent(segment).replaceAll("-", " ").replace(/\s+/g, " ").trim();
+}
+
+export function parseGuestFromPath(guest: string) {
+  return decodeURIComponent(guest).replaceAll("-", " ").replace(/\s+/g, " ").trim();
+}
+
+export async function runGuestSearch(
+  guestName: string,
+  topic: string,
+  options?: {
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    episodeId?: string | null;
+  },
+): Promise<ReadSearchResult> {
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic) {
+    throw new Error("Topic is required");
+  }
+
+  const guest = parseGuestFromPath(guestName);
+  if (!guest) {
+    throw new Error("Guest is required");
+  }
+
+  const search = await runGuestTopicSearch({
+    guestName: guest,
+    topic: trimmedTopic,
+    dateFrom: options?.dateFrom,
+    dateTo: options?.dateTo,
+    episodeId: options?.episodeId,
+  });
+
+  return {
+    query: search.query,
+    guestName: search.guestName,
+    episodeId: options?.episodeId?.trim() || undefined,
+    dateFrom: options?.dateFrom?.trim() || undefined,
+    dateTo: options?.dateTo?.trim() || undefined,
+    matches: search.matches,
+    windowsSearched: search.windowsSearched,
+    searchedSegments: search.searchedSegments,
+  };
 }

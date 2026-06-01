@@ -9,10 +9,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
     const transcript = await loadEpisodeTranscript(id);
-    return NextResponse.json({
-      episode: transcript.episode,
-      chunks: transcript.chunks.map(({ id: _id, speaker: _speaker, clip_url: _clipUrl, ...chunk }) => chunk),
-    });
+    return NextResponse.json(transcript);
   } catch (error) {
     if (error instanceof ReadApiNotFoundError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

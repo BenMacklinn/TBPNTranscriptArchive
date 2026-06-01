@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EpisodeSummary, GuestNameOption } from "@/lib/supabase";
+import { buildGuestLookupPath } from "@/lib/api-paths";
 
 type SearchWorkspaceProps = {
   query: string;
@@ -54,7 +55,7 @@ export function SearchWorkspace({
   async function fetchGuestSuggestions(needle: string, openMenu = true) {
     setGuestLookupLoading(true);
     try {
-      const response = await fetch(`/api/guests?q=${encodeURIComponent(needle)}`);
+      const response = await fetch(buildGuestLookupPath(needle));
       const data = (await response.json()) as {
         guests?: GuestNameOption[];
         error?: string;

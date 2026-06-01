@@ -7,17 +7,20 @@ import argparse
 import json
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
-def post_search(base_url: str, guest_name: str, topic: str) -> dict:
-    payload = json.dumps({"guestName": guest_name, "query": topic}).encode("utf-8")
-    request = urllib.request.Request(
-        f"{base_url.rstrip('/')}/api/search",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+def encode_path_segment(value: str) -> str:
+    slug = value.strip().lower().replace(" ", "-")
+    return urllib.parse.quote(slug, safe="")
+
+
+def get_guest_search(base_url: str, guest_name: str, topic: str) -> dict:
+    guest = encode_path_segment(guest_name)
+    query = encode_path_segment(topic)
+    url = f"{base_url.rstrip('/')}/api/guests/{guest}/search/{query}"
+    request = urllib.request.Request(url, method="GET")
     with urllib.request.urlopen(request, timeout=120) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -39,7 +42,7 @@ def main() -> int:
     for guest, topic in checks:
         print(f"\n=== {guest} + {topic!r} ===")
         try:
-            result = post_search(args.base_url, guest, topic)
+            result = get_guest_search(args.base_url, guest, topic)
         except urllib.error.HTTPError as error:
             body = error.read().decode("utf-8", errors="replace")
             print(f"HTTP {error.code}: {body}")
