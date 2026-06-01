@@ -44,8 +44,10 @@ body {
   color: var(--text);
 }
 
-body {
-  zoom: var(--scale);
+@media (min-width: 720px) {
+  body {
+    zoom: var(--scale);
+  }
 }
 
 a {

@@ -6,6 +6,7 @@ dependencies = [
   "google-api-python-client>=2.160.0",
   "youtube-transcript-api>=1.0.0",
   "openai>=1.60.0",
+  "pinecone>=7.0.0",
   "supabase>=2.11.0",
   "python-dotenv>=1.0.0",
   "httpx>=0.28.0",

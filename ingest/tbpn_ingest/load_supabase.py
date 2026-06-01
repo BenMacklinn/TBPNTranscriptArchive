@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,6 +12,12 @@ from supabase import Client, create_client
 from tbpn_ingest.chunk import TranscriptChunk
 from tbpn_ingest.embed import embed_texts
 from tbpn_ingest.list_episodes import Episode
+from tbpn_ingest.pinecone_store import (
+    PineconeChunkVector,
+    delete_episode_vectors,
+    is_pinecone_configured,
+    upsert_chunk_vectors,
+)
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -75,8 +82,13 @@ def replace_episode_chunks(
     if any(embedding is None for embedding in embeddings):
         raise RuntimeError("OPENAI_API_KEY is required to store searchable embeddings")
 
+    use_pinecone = is_pinecone_configured()
+    if use_pinecone:
+        delete_episode_vectors(episode.id)
+
     rows = [
         {
+            "id": str(uuid.uuid4()),
             "episode_id": episode.id,
             "start_seconds": chunk.start_seconds,
             "end_seconds": chunk.end_seconds,
@@ -84,7 +96,7 @@ def replace_episode_chunks(
             "end_time": chunk.end_time,
             "text": chunk.text,
             "speaker": None,
-            "embedding": embedding,
+            **({} if use_pinecone else {"embedding": embedding}),
         }
         for chunk, embedding in zip(chunks, embeddings, strict=True)
     ]
@@ -94,6 +106,22 @@ def replace_episode_chunks(
         batch = rows[start : start + batch_size]
         insert_chunk_batch(client, batch)
         print(f"  inserted {min(start + batch_size, len(rows))}/{len(rows)} chunks", flush=True)
+
+    if use_pinecone:
+        upserted = upsert_chunk_vectors(
+            [
+                PineconeChunkVector(
+                    id=row["id"],
+                    values=embedding,
+                    episode_id=episode.id,
+                    published_at=episode.published_at,
+                    start_seconds=row["start_seconds"],
+                    end_seconds=row["end_seconds"],
+                )
+                for row, embedding in zip(rows, embeddings, strict=True)
+            ]
+        )
+        print(f"  upserted {upserted} vectors to Pinecone", flush=True)
 
     upsert_episode(client, episode, "done")
     return len(rows)

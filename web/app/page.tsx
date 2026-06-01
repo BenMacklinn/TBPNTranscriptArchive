@@ -131,8 +131,17 @@ export default function HomePage() {
         setWindowsSearched(null);
         setSearchedSegments([]);
       }
-      setMatches(data.matches ?? []);
+      const nextMatches = data.matches ?? [];
+      setMatches(nextMatches);
       setExpanded(new Set());
+
+      if (nextMatches.length > 0 || (data.searchedSegments ?? []).length > 0) {
+        requestAnimationFrame(() => {
+          document
+            .querySelector(".results-section, .guest-segments-panel")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     } catch (submitError) {
       setError(
         submitError instanceof Error ? submitError.message : "Search failed",

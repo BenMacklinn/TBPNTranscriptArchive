@@ -113,14 +113,14 @@ export function SearchWorkspace({
   }, [guestSuggestionsOpen]);
 
   useEffect(() => {
-    function handlePointerDown(event: MouseEvent) {
+    function handlePointerDown(event: PointerEvent) {
       if (!guestComboboxRef.current?.contains(event.target as Node)) {
         setGuestSuggestionsOpen(false);
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
   const filteredEpisodes = useMemo(() => {
