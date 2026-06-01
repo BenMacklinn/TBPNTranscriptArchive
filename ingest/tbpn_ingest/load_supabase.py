@@ -150,6 +150,8 @@ def build_word_rows(
         for row in chunk_rows:
             if row["start_seconds"] <= word.start_seconds < row["end_seconds"]:
                 return row["id"]
+        if chunk_rows and word.start_seconds >= chunk_rows[-1]["start_seconds"]:
+            return chunk_rows[-1]["id"]
         return None
 
     return [

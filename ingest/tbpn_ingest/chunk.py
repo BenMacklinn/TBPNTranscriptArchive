@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -54,7 +55,7 @@ def chunk_transcript(segments: list[CaptionSegment]) -> list[TranscriptChunk]:
     while index < len(segments):
         segment = segments[index]
         segment_start = int(segment.start)
-        segment_end = int(segment.start + segment.duration)
+        segment_end = math.ceil(segment.start + segment.duration)
         buffer_text.append(segment.text)
         chunk_end = max(chunk_end, segment_end)
         word_count += len(segment.text.split())
