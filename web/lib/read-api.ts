@@ -69,15 +69,7 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     throw new Error(chunksError.message);
   }
 
-  const { data: words, error: wordsError } = await supabase
-    .from("transcript_words")
-    .select("chunk_id, word, start_seconds, end_seconds")
-    .eq("episode_id", episodeId)
-    .order("word_index", { ascending: true });
-
-  if (wordsError) {
-    throw new Error(wordsError.message);
-  }
+  const words = await loadEpisodeWords(episodeId);
 
   const wordsByChunk = new Map<string, ReadTranscriptWord[]>();
   for (const word of words ?? []) {
@@ -110,6 +102,39 @@ export async function loadEpisodeTranscript(episodeId: string): Promise<ReadTran
     chunk_count: detailedChunks.length,
     chunks: detailedChunks,
   };
+}
+
+type TranscriptWordRow = {
+  chunk_id: string | null;
+  word: string;
+  start_seconds: number | string;
+  end_seconds: number | string;
+};
+
+async function loadEpisodeWords(episodeId: string): Promise<TranscriptWordRow[]> {
+  const supabase = getSupabaseAdmin();
+  const pageSize = 1000;
+  const words: TranscriptWordRow[] = [];
+
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase
+      .from("transcript_words")
+      .select("chunk_id, word, start_seconds, end_seconds")
+      .eq("episode_id", episodeId)
+      .order("word_index", { ascending: true })
+      .range(start, start + pageSize - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const page = (data ?? []) as TranscriptWordRow[];
+    words.push(...page);
+
+    if (page.length < pageSize) {
+      return words;
+    }
+  }
 }
 
 export class ReadApiNotFoundError extends Error {
