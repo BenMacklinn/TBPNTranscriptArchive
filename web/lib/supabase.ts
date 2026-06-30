@@ -132,9 +132,7 @@ function parseIsoDateParts(isoDate: string) {
 
 export function formatNewsmaxEpisodeDate(isoDate: string) {
   const { year, month, day } = parseIsoDateParts(isoDate);
-  // Archive dates follow YouTube upload day; Newsmax clipper uses the live show day.
-  const showDate = new Date(Date.UTC(year, month - 1, day - 1));
-  return `${showDate.getUTCMonth() + 1}-${showDate.getUTCDate()}-${showDate.getUTCFullYear()}`;
+  return `${month}-${day}-${year}`;
 }
 
 export function buildNewsmaxClipUrl(isoDate: string) {
