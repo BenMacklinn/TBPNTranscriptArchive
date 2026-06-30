@@ -13,6 +13,7 @@ import {
 } from "@/lib/hybrid-search";
 import {
   buildClipUrl,
+  buildNewsmaxClipUrl,
   formatDisplayTimestamp,
   getSupabaseAdmin,
   type SearchMatch,
@@ -207,6 +208,7 @@ export async function runGuestTopicSearch(params: {
         query: topic,
       }),
       clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
+      newsmax_clip_url: buildNewsmaxClipUrl(matchingWindow.episodeDate),
       youtube_video_id: row.youtube_video_id,
       start_seconds: row.start_seconds,
       transcript_snippet: row.chunk_text,

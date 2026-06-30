@@ -48,6 +48,7 @@ export type SearchMatch = {
   shared_entities: string[];
   match_type: "keyword" | "semantic" | "hybrid";
   summary_source?: "llm" | "heuristic";
+  newsmax_clip_url?: string;
   guest_name?: string;
   guest_segment_start?: string;
   guest_segment_url?: string;

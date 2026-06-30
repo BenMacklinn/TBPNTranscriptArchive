@@ -526,3 +526,28 @@ export async function getGuestAppearances(
   await getGuestCatalogState();
   return getGuestAppearancesSync(person, maxRows);
 }
+
+function getEpisodeShowDatesByVideoIdsSync(videoIds: string[]): Map<string, string> {
+  if (!cache) {
+    return new Map();
+  }
+
+  const wanted = new Set(videoIds);
+  const dates = new Map<string, string>();
+
+  for (const appearance of cache.appearances) {
+    if (!wanted.has(appearance.videoId) || dates.has(appearance.videoId)) {
+      continue;
+    }
+    dates.set(appearance.videoId, appearance.episodeDate);
+  }
+
+  return dates;
+}
+
+export async function getEpisodeShowDatesByVideoIds(
+  videoIds: string[],
+): Promise<Map<string, string>> {
+  await getGuestCatalogState();
+  return getEpisodeShowDatesByVideoIdsSync(videoIds);
+}

@@ -210,7 +210,7 @@ export function ResultCard({ match, query, expanded, onToggle }: ResultCardProps
           </button>
           <a
             className="btn btn-secondary result-action-btn"
-            href={buildNewsmaxClipUrl(match.date)}
+            href={match.newsmax_clip_url ?? buildNewsmaxClipUrl(match.date)}
             target="_blank"
             rel="noreferrer"
           >

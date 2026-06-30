@@ -1,4 +1,5 @@
 import { enrichMatchReasonsWithLlm } from "@/lib/match-reasons";
+import { getEpisodeShowDatesByVideoIds } from "@/lib/guest-catalog";
 import { runGuestTopicSearch } from "@/lib/guest-search";
 import {
   embedQuery,
@@ -8,6 +9,7 @@ import {
 import { parseQuerySignals, rerankSearchResultsDetailed, takeRelevantResults } from "@/lib/rerank";
 import {
   buildClipUrl,
+  buildNewsmaxClipUrl,
   getSupabaseAdmin,
   type SearchMatch,
 } from "@/lib/supabase";
@@ -89,26 +91,34 @@ export async function runSearch(params: {
 
   const merged = mergeHybridResults(await Promise.all(searches));
   const rows = takeRelevantResults(rerankSearchResultsDetailed(params.query, merged));
+  const showDates = await getEpisodeShowDatesByVideoIds(
+    rows.map((row) => row.youtube_video_id),
+  );
 
-  const matches: SearchMatch[] = rows.map((row, index) => ({
-    episode_id: row.episode_id,
-    title: row.episode_title,
-    date: row.published_at,
-    start_time: row.start_time,
-    end_time: row.end_time,
-    summary: row.reason,
-    clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
-    youtube_video_id: row.youtube_video_id,
-    start_seconds: row.start_seconds,
-    transcript_snippet: row.chunk_text,
-    score: row.score,
-    rank: index + 1,
-    confidence: row.confidence,
-    match_reason: row.reason,
-    shared_terms: row.shared_terms,
-    shared_entities: row.shared_entities,
-    match_type: row.match_type,
-  }));
+  const matches: SearchMatch[] = rows.map((row, index) => {
+    const showDate = showDates.get(row.youtube_video_id) ?? row.published_at;
+
+    return {
+      episode_id: row.episode_id,
+      title: row.episode_title,
+      date: showDate,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      summary: row.reason,
+      clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
+      newsmax_clip_url: buildNewsmaxClipUrl(showDate),
+      youtube_video_id: row.youtube_video_id,
+      start_seconds: row.start_seconds,
+      transcript_snippet: row.chunk_text,
+      score: row.score,
+      rank: index + 1,
+      confidence: row.confidence,
+      match_reason: row.reason,
+      shared_terms: row.shared_terms,
+      shared_entities: row.shared_entities,
+      match_type: row.match_type,
+    };
+  });
 
   return {
     query: params.query,
