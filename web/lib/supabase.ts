@@ -136,9 +136,14 @@ export function formatNewsmaxEpisodeDate(isoDate: string) {
   return `${month}-${day}-${year}`;
 }
 
-export function buildNewsmaxClipUrl(isoDate: string) {
+export function buildNewsmaxClipUrl(isoDate: string, startSeconds?: number) {
   const slug = formatNewsmaxEpisodeDate(isoDate);
-  return `${NEWSMAX_CLIPPER_BASE_URL.replace(/\/$/, "")}/episodes/${slug}/live-clipper`;
+  const url = `${NEWSMAX_CLIPPER_BASE_URL.replace(/\/$/, "")}/episodes/${slug}/live-clipper`;
+  if (startSeconds == null || Number.isNaN(startSeconds)) {
+    return url;
+  }
+  const seconds = Math.max(0, Math.floor(startSeconds));
+  return `${url}?t=${seconds}s`;
 }
 
 export function formatDisplayDate(isoDate: string) {

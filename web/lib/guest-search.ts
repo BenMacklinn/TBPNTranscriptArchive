@@ -208,7 +208,7 @@ export async function runGuestTopicSearch(params: {
         query: topic,
       }),
       clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
-      newsmax_clip_url: buildNewsmaxClipUrl(matchingWindow.episodeDate),
+      newsmax_clip_url: buildNewsmaxClipUrl(matchingWindow.episodeDate, row.start_seconds),
       youtube_video_id: row.youtube_video_id,
       start_seconds: row.start_seconds,
       transcript_snippet: row.chunk_text,

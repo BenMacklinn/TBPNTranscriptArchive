@@ -106,7 +106,7 @@ export async function runSearch(params: {
       end_time: row.end_time,
       summary: row.reason,
       clip_url: buildClipUrl(row.youtube_video_id, row.start_seconds),
-      newsmax_clip_url: buildNewsmaxClipUrl(showDate),
+      newsmax_clip_url: buildNewsmaxClipUrl(showDate, row.start_seconds),
       youtube_video_id: row.youtube_video_id,
       start_seconds: row.start_seconds,
       transcript_snippet: row.chunk_text,
