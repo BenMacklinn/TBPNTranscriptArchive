@@ -1,0 +1,45 @@
+name: Daily Sync
+
+on:
+  schedule:
+    - cron: "0 23 * * *" # 4:00 PM Pacific during daylight time
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ingest/pyproject.toml
+
+      - name: Install ingest dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./ingest
+
+      - name: Write YouTube cookies
+        if: ${{ secrets.YOUTUBE_COOKIES_JSON != '' }}
+        env:
+          YOUTUBE_COOKIES_JSON: ${{ secrets.YOUTUBE_COOKIES_JSON }}
+        run: printf '%s' "$YOUTUBE_COOKIES_JSON" > ingest/youtube_cookies.json
+
+      - name: Run daily caption ingest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+          PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+          PINECONE_NAMESPACE: ${{ secrets.PINECONE_NAMESPACE }}
+          PINECONE_INDEX_HOST: ${{ secrets.PINECONE_INDEX_HOST }}
+          YOUTUBE_COOKIES_PATH: ingest/youtube_cookies.json
+        run: bash ingest/scripts/daily_sync.sh

@@ -54,6 +54,29 @@ python -m tbpn_ingest embed
 python -m tbpn_ingest ingest --since 2025-05-01
 ```
 
+### Automatic daily sync (GitHub Actions)
+
+Unlike the Node.js TBPN projects that trigger a Vercel `/api/cron/sync` endpoint, transcript ingest runs directly in GitHub Actions because it is a long-running Python job (YouTube captions, chunking, embeddings, Pinecone upserts).
+
+1. **Add GitHub secrets** — Repo → Settings → Secrets and variables → Actions:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `YOUTUBE_API_KEY`
+   - `OPENAI_API_KEY`
+   - `PINECONE_API_KEY`
+   - `PINECONE_INDEX_NAME` (e.g. `tbpn-transcript-chunks`)
+   - `PINECONE_NAMESPACE` (e.g. `production`)
+   - `PINECONE_INDEX_HOST` (optional, avoids index host lookup at runtime)
+   - `YOUTUBE_COOKIES_JSON` (optional, raw JSON from `ingest/youtube_cookies.json` if YouTube blocks datacenter IPs)
+2. **Enable Actions** — `.github/workflows/daily-sync.yml` runs daily at 4:00 PM Pacific and ingests any new episodes with `--full --skip-done`.
+3. **Manual run** — Actions → Daily Sync → Run workflow.
+
+Local equivalent:
+
+```bash
+bash ingest/scripts/daily_sync.sh
+```
+
 ### Word-level transcription
 
 The `--transcribe` ingest path uses `yt-dlp` to download episode audio,
