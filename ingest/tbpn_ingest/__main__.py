@@ -10,6 +10,7 @@ from tbpn_ingest.fetch_transcripts import fetch_transcript
 from tbpn_ingest.list_episodes import (
     discover_livestream_episodes,
     filter_episodes_since,
+    filter_episodes_until,
     load_episodes_manifest,
     save_episodes_manifest,
 )
@@ -37,7 +38,9 @@ def cmd_ingest(args: argparse.Namespace) -> str:
         episodes = load_episodes_manifest()
 
     since = date.fromisoformat(args.since) if args.since else None
+    until = date.fromisoformat(args.until) if args.until else None
     episodes = filter_episodes_since(episodes, since)
+    episodes = filter_episodes_until(episodes, until)
     if args.limit:
         episodes = episodes[: args.limit]
 
@@ -129,6 +132,7 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser = subparsers.add_parser("ingest", help="Fetch, chunk, embed, and load")
     ingest_parser.add_argument("--full", action="store_true", help="Refresh manifest and ingest all")
     ingest_parser.add_argument("--since", help="Only ingest episodes on/after YYYY-MM-DD")
+    ingest_parser.add_argument("--until", help="Only ingest episodes on/before YYYY-MM-DD")
     ingest_parser.add_argument("--limit", type=int, help="Only ingest the first N episodes")
     ingest_parser.add_argument(
         "--transcribe",

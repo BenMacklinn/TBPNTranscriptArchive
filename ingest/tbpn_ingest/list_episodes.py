@@ -242,3 +242,10 @@ def filter_episodes_since(episodes: list[Episode], since: date | None) -> list[E
         return episodes
     since_str = since.isoformat()
     return [episode for episode in episodes if episode.published_at >= since_str]
+
+
+def filter_episodes_until(episodes: list[Episode], until: date | None) -> list[Episode]:
+    if until is None:
+        return episodes
+    until_str = until.isoformat()
+    return [episode for episode in episodes if episode.published_at <= until_str]

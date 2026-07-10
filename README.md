@@ -68,7 +68,7 @@ Unlike the Node.js TBPN projects that trigger a Vercel `/api/cron/sync` endpoint
    - `PINECONE_NAMESPACE` (e.g. `production`)
    - `PINECONE_INDEX_HOST` (optional, avoids index host lookup at runtime)
    - `YOUTUBE_COOKIES_JSON` (optional, raw JSON from `ingest/youtube_cookies.json` if YouTube blocks datacenter IPs)
-2. **Enable Actions** — `.github/workflows/daily-sync.yml` runs daily at 4:00 PM Pacific and ingests any new episodes with `--full --skip-done`.
+2. **Enable Actions** — `.github/workflows/daily-sync.yml` runs daily at **9:00 AM Pacific** and ingests the previous day's episode(s) with `--full --skip-done --since/--until` set to yesterday in `America/Los_Angeles`.
 3. **Manual run** — Actions → Daily Sync → Run workflow.
 
 Local equivalent:
