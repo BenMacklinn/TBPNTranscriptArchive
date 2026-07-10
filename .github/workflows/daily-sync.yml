@@ -26,10 +26,12 @@ jobs:
           pip install ./ingest
 
       - name: Write YouTube cookies
-        if: ${{ secrets.YOUTUBE_COOKIES_JSON != '' }}
         env:
           YOUTUBE_COOKIES_JSON: ${{ secrets.YOUTUBE_COOKIES_JSON }}
-        run: printf '%s' "$YOUTUBE_COOKIES_JSON" > ingest/youtube_cookies.json
+        run: |
+          if [[ -n "${YOUTUBE_COOKIES_JSON:-}" ]]; then
+            printf '%s' "$YOUTUBE_COOKIES_JSON" > ingest/youtube_cookies.json
+          fi
 
       - name: Run daily caption ingest
         env:
