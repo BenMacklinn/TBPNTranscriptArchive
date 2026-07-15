@@ -56,7 +56,9 @@ python -m tbpn_ingest ingest --since 2025-05-01
 
 ### Automatic daily sync (macOS launchd)
 
-YouTube blocks transcript requests from GitHub Actions cloud IPs, so the daily job runs on your Mac at **9:00 AM Pacific** via `launchd`. It ingests the previous day's episode(s) using YouTube captions.
+YouTube blocks transcript requests from GitHub Actions cloud IPs, so the daily job runs on your Mac via `launchd`. It ingests any missing episodes from the **last 7 days** (through yesterday) using YouTube captions.
+
+If your Mac is asleep at 9 AM, the scheduled run is skipped — but it also runs **when you log in**, so missed days get caught up once the machine is back on.
 
 **Install the scheduler:**
 
