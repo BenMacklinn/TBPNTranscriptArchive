@@ -1,8 +1,8 @@
 name: Daily Sync
 
 on:
-  schedule:
-    - cron: "0 16 * * *" # 9:00 AM Pacific during daylight time
+  # YouTube blocks GitHub-hosted cloud IPs for transcript fetches.
+  # Daily ingest runs on the Mac via launchd (see scripts/launchd/).
   workflow_dispatch:
 
 jobs:
@@ -44,4 +44,5 @@ jobs:
           PINECONE_NAMESPACE: ${{ secrets.PINECONE_NAMESPACE }}
           PINECONE_INDEX_HOST: ${{ secrets.PINECONE_INDEX_HOST }}
           YOUTUBE_COOKIES_PATH: ingest/youtube_cookies.json
+          YOUTUBE_PROXY_URL: ${{ secrets.YOUTUBE_PROXY_URL }}
         run: bash ingest/scripts/daily_sync.sh

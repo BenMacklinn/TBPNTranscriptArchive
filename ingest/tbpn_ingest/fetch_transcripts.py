@@ -6,20 +6,11 @@ from dataclasses import dataclass
 from youtube_transcript_api import (
     IpBlocked,
     NoTranscriptFound,
+    RequestBlocked,
     TranscriptsDisabled,
-    YouTubeTranscriptApi,
 )
 
-from tbpn_ingest.cookies import load_youtube_session
-
-_api: YouTubeTranscriptApi | None = None
-
-
-def get_transcript_api() -> YouTubeTranscriptApi:
-    global _api
-    if _api is None:
-        _api = YouTubeTranscriptApi(http_client=load_youtube_session())
-    return _api
+from tbpn_ingest.youtube_client import get_transcript_api
 
 
 @dataclass
@@ -29,14 +20,18 @@ class CaptionSegment:
     text: str
 
 
+def _blocked_error(video_id: str, exc: Exception) -> RuntimeError:
+    return RuntimeError(f"YouTube blocked transcript requests for {video_id}")
+
+
 def fetch_transcript(video_id: str, pause_seconds: float = 1.5) -> list[CaptionSegment]:
     api = get_transcript_api()
     try:
         transcript_list = api.list(video_id)
     except (NoTranscriptFound, TranscriptsDisabled) as exc:
         raise RuntimeError(f"No captions for {video_id}") from exc
-    except IpBlocked as exc:
-        raise RuntimeError(f"YouTube blocked transcript requests for {video_id}") from exc
+    except (IpBlocked, RequestBlocked) as exc:
+        raise _blocked_error(video_id, exc) from exc
 
     transcript = None
     for language in ("en", "en-US", "en-GB"):
@@ -54,8 +49,8 @@ def fetch_transcript(video_id: str, pause_seconds: float = 1.5) -> list[CaptionS
 
     try:
         fetched = transcript.fetch()
-    except IpBlocked as exc:
-        raise RuntimeError(f"YouTube blocked transcript requests for {video_id}") from exc
+    except (IpBlocked, RequestBlocked) as exc:
+        raise _blocked_error(video_id, exc) from exc
 
     time.sleep(pause_seconds)
     return [

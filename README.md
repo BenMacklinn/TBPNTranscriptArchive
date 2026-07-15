@@ -54,28 +54,29 @@ python -m tbpn_ingest embed
 python -m tbpn_ingest ingest --since 2025-05-01
 ```
 
-### Automatic daily sync (GitHub Actions)
+### Automatic daily sync (macOS launchd)
 
-Unlike the Node.js TBPN projects that trigger a Vercel `/api/cron/sync` endpoint, transcript ingest runs directly in GitHub Actions because it is a long-running Python job (YouTube captions, chunking, embeddings, Pinecone upserts).
+YouTube blocks transcript requests from GitHub Actions cloud IPs, so the daily job runs on your Mac at **9:00 AM Pacific** via `launchd`. It ingests the previous day's episode(s) using YouTube captions.
 
-1. **Add GitHub secrets** — Repo → Settings → Secrets and variables → Actions:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `YOUTUBE_API_KEY`
-   - `OPENAI_API_KEY`
-   - `PINECONE_API_KEY`
-   - `PINECONE_INDEX_NAME` (e.g. `tbpn-transcript-chunks`)
-   - `PINECONE_NAMESPACE` (e.g. `production`)
-   - `PINECONE_INDEX_HOST` (optional, avoids index host lookup at runtime)
-   - `YOUTUBE_COOKIES_JSON` (optional, raw JSON from `ingest/youtube_cookies.json` if YouTube blocks datacenter IPs)
-2. **Enable Actions** — `.github/workflows/daily-sync.yml` runs daily at **9:00 AM Pacific** and ingests the previous day's episode(s) with `--full --skip-done --since/--until` set to yesterday in `America/Los_Angeles`.
-3. **Manual run** — Actions → Daily Sync → Run workflow.
-
-Local equivalent:
+**Install the scheduler:**
 
 ```bash
-bash ingest/scripts/daily_sync.sh
+cp scripts/launchd/com.tbpn.transcript-daily-sync.plist ~/Library/LaunchAgents/
+launchctl bootout "gui/$(id -u)" ~/Library/LaunchAgents/com.tbpn.transcript-daily-sync.plist 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.tbpn.transcript-daily-sync.plist
 ```
+
+Logs: `ingest/daily_sync.log`
+
+**Manual run (same as the scheduler):**
+
+```bash
+bash ingest/scripts/run_scheduled_sync.sh
+```
+
+**Optional GitHub Actions** — `.github/workflows/daily-sync.yml` is manual-only (`workflow_dispatch`). It only works if you add a residential `YOUTUBE_PROXY_URL` secret; otherwise use the Mac scheduler.
+
+Required local setup: `.env` at repo root, `ingest/.venv`, and optionally `ingest/youtube_cookies.json` for YouTube auth.
 
 ### Word-level transcription
 
