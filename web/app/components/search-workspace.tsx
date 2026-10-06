@@ -87,7 +87,7 @@ export function SearchWorkspace({
   }
 
   useEffect(() => {
-    searchInputRef.current?.focus();
+    guestInputRef.current?.focus();
   }, []);
 
   useEffect(() => {
